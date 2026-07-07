@@ -1,7 +1,7 @@
 // [HOOK: UI_GLOBALS]
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
-const lookaheadSec = 3.0;
+const lookaheadSec = 4.0; // 4 secondi per far scendere le note con assoluta eleganza dall'alto [3]
 let currentTrebleNotes = [], currentBassNotes = [];
 
 // FUNZIONE GLOBALE DI SUPPORTO (Portata al livello superiore per evitare errori di caricamento)
@@ -139,30 +139,72 @@ window.initSynthesiaCanvas = function() {
     }
 };
 
+// GRAFICA DELLA CASCATA (Riscritto per slegare la discesa dal basso scheduler dell'AudioContext)
 window.renderSynthesia = function(now, elapsed) {
     if (!synthCtx || !synthCanvas) return;
-    synthCtx.fillStyle = '#444444'; synthCtx.fillRect(0, 0, synthCanvas.width, synthCanvas.height);
-    if (!isPlaying || !scheduledNotes) return;
+    
+    // SFONDO CIELO CELESTE SFUMATO [3]
+    let gradient = synthCtx.createLinearGradient(0, 0, 0, synthCanvas.height);
+    gradient.addColorStop(0, '#a1c4fd'); // Celeste carico in alto
+    gradient.addColorStop(1, '#c2e9fb'); // Celeste chiarissimo sfumato in basso
+    synthCtx.fillStyle = gradient;
+    synthCtx.fillRect(0, 0, synthCanvas.width, synthCanvas.height);
+    
+    if (!isPlaying || !window.visualTimeline) return;
 
-    scheduledNotes.forEach(note => {
-        if (note.end < now || note.start > now + lookaheadSec) return; 
+    const bpm = parseFloat(document.getElementById('bpmSlider').value);
+    const beatDuration = 60 / bpm;
+
+    window.visualTimeline.forEach(note => {
+        const noteStartSec = note.beat * beatDuration;
+        const noteEndSec = (note.beat + note.durationBeats) * beatDuration;
+
+        // Filtra le note fuori dallo spazio visibile
+        if (noteEndSec < elapsed || noteStartSec > elapsed + lookaheadSec) return;
+
         const map = canvasMap[note.midi]; if (!map) return;
-        let yBottom = synthCanvas.height - ((note.start - now) / lookaheadSec) * synthCanvas.height;
-        let yTop = synthCanvas.height - ((note.end - now) / lookaheadSec) * synthCanvas.height;
-        const h = Math.max(yBottom - yTop, 2);
 
-        synthCtx.fillStyle = note.type === 'chord' ? '#d97a35' : '#3a6fb0';
-        synthCtx.strokeStyle = '#111'; synthCtx.lineWidth = 1;
+        // Calcola le coordinate Y di discesa dal cielo [3]
+        let yBottom = synthCanvas.height - ((noteStartSec - elapsed) / lookaheadSec) * synthCanvas.height;
+        let yTop = synthCanvas.height - ((noteEndSec - elapsed) / lookaheadSec) * synthCanvas.height;
+        let h = Math.max(yBottom - yTop, 4); // Minimo 4px di altezza
+        let y = yTop;
 
+        // COLORI CHIARI PASTELLO DIFFERENTI PER LE MANI [3]
+        // Sinistra (Chord) = Giallo Crema chiarissimo, Destra (Melody) = Rosa Confetto chiarissimo
+        synthCtx.fillStyle = note.type === 'chord' ? '#ffdfba' : '#ffccd5';
+        synthCtx.strokeStyle = note.type === 'chord' ? '#e0af84' : '#e59fa5';
+        synthCtx.lineWidth = 1.5;
+
+        let x, w;
         if (map.isBlack) {
-            const w = 0.0115 * synthCanvas.width; const x = map.leftPct * synthCanvas.width - (w / 2);
-            synthCtx.fillRect(x, yTop, w, h); synthCtx.strokeRect(x, yTop, w, h);
+            w = 0.0115 * synthCanvas.width; 
+            x = map.leftPct * synthCanvas.width - (w / 2);
         } else {
-            const w = map.wPct * synthCanvas.width; const x = map.xPct * synthCanvas.width;
-            synthCtx.fillRect(x + 0.5, yTop, w - 1, h); synthCtx.strokeRect(x + 0.5, yTop, w - 1, h);
+            w = map.wPct * synthCanvas.width; 
+            x = map.xPct * synthCanvas.width;
         }
+
+        // DISEGNA I RETTANGOLI CON ANGOLI ARROTONDATI [3]
+        let radius = Math.min(w / 2, 4);
+        drawRoundRect(synthCtx, x + 0.5, y, w - 1, h, radius);
+        synthCtx.fill();
+        synthCtx.stroke();
     });
 };
+
+// Funzione geometrica di supporto per arrotondare gli spigoli [3]
+function drawRoundRect(ctx, x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
 
 // [HOOK: STAFF_RENDER]
 window.initStaffCanvas = function() {
@@ -203,7 +245,7 @@ window.renderScrollingStaff = function(currentBeat) {
             const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
             if (x < 85 || x > w + 100) return; 
             let displayMidi = note.note > 83 ? note.note - 12 : note.note;
-            const step = midiToDiatonicStep(displayMidi); const y = centerY_treble - (step - 38) * (gap / 2);
+            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_treble - (step - 38) * (gap / 2);
             drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_treble, true, note.note > 83, false);
         });
     }
@@ -213,7 +255,7 @@ window.renderScrollingStaff = function(currentBeat) {
             const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
             if (x < 85 || x > w + 100) return;
             let displayMidi = note.note < 36 ? note.note + 12 : note.note;
-            const step = midiToDiatonicStep(displayMidi); const y = centerY_bass - (step - 26) * (gap / 2);
+            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_bass - (step - 26) * (gap / 2);
             drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_bass, false, false, note.note < 36);
         });
     }
@@ -265,6 +307,10 @@ window.importSongFromJSON = function(songData) {
     currentTrebleNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'melody', volume: item.velocity ? item.velocity/127 : 0.8 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
     currentBassNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'chord', volume: item.velocity ? item.velocity/127 : 0.7 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
     playbackTimeline.sort((a, b) => a.beat - b.beat);
+    
+    // CREA UNA COPIA DELLA TIMELINE PER IL VISUALIZZATORE WATERFALL GRAFICO [3]
+    window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
+
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
     window.renderScrollingStaff(0);
 };

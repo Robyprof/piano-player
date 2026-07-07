@@ -4,6 +4,14 @@ let staffCanvas, staffCtx;
 const lookaheadSec = 3.0;
 let currentTrebleNotes = [], currentBassNotes = [];
 
+// FUNZIONE GLOBALE DI SUPPORTO (Portata al livello superiore per evitare errori di caricamento)
+window.midiToDiatonicStep = function(midi) { 
+    const octave = Math.floor(midi / 12) - 1; 
+    const noteClass = midi % 12; 
+    const cMajOffsets = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; 
+    return octave * 7 + cMajOffsets[noteClass]; 
+};
+
 // [HOOK: KEYBOARDS_RENDER]
 window.buildMainKeyboard = function() {
     const keyboard = document.getElementById('keyboard');

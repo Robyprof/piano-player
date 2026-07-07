@@ -7,7 +7,7 @@ const pianoBuffers = {};
 
 let schedulerWorker;
 window.customInstrumentBuffers = {}; 
-window.mediaRecorder = null; // Portato su window per evitare problemi di scope
+window.mediaRecorder = null; // Reso globale su window per risolvere errori di scope tra moduli
 let recordingChunks = [];
 let currentSelectedSamplerNote = null;
 let recordingTimeout = null;

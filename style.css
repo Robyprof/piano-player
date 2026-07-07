@@ -40,7 +40,7 @@ p.subtitle { text-align: center; margin-top: 0; margin-bottom: 30px; color: #627
 .synthesia-container { border-radius: 8px; overflow: hidden; border: 2px solid #1c1f30; display: flex; flex-direction: column; }
 .synthesia-canvas { width: 100%; height: 350px; background-color: #444444; border-bottom: 2px solid #111; display: block; }
 
-/* Tastiera Reale e Contenitori (Risolto bug di collasso Flexbox con flex-shrink: 0) */
+/* Tastiera Reale e Contenitori */
 .keyboard { display: flex; position: relative; height: 210px; background: #000; padding-bottom: 4px; width: 100%; overflow: hidden; }
 .white-keys-container { display: flex; width: 100%; height: 100%; flex-shrink: 0; }
 .black-keys-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -67,57 +67,51 @@ button.stop-btn { background-color: var(--accent-sad); color: white; border: non
 /* [HOOK: SAMPLER_MODAL] */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { background: var(--card-bg); width: 95%; max-width: 1200px; border-radius: 10px; border: 1px solid #44475a; padding: 25px; display: flex; flex-direction: column; gap: 15px;}
-
-/* TASTIERA MODAL IDENTICA ALLA PRINCIPALE (Previene bug grafici) */
 .sampler-keyboard-wrap { position: relative; width: 100%; height: 210px; overflow: hidden; border: 2px solid #44475a; border-radius: 6px; margin-top: 15px; }
 
-/* MODALITA' SAMPLER: Mostra la tastiera classica ma scurisce i 58 tasti inattivi */
-.keyboard.sampler-mode .key-white.s-inactive {
-    background: #e1e2eb !important;
-    border-right: 1px solid #bcbdd6 !important;
-    pointer-events: none !important;
-    opacity: 0.4;
+/* SOVRASCRITTURE MODALITA' SAMPLER (.sampler-mode) */
+/* Nessuna alterazione estetica: i colori base rimangono identici a quelli classici */
+.keyboard.sampler-mode .key-white {
+    background: #ffffff;
 }
-.keyboard.sampler-mode .key-black.s-inactive {
-    background: #4a4c5a !important;
-    pointer-events: none !important;
-    opacity: 0.3;
+.keyboard.sampler-mode .key-black {
+    background: #1e1e24;
 }
 
-.keyboard.sampler-mode .key-white.s-active {
-    background: #ffffff !important;
-    pointer-events: auto !important;
-    cursor: pointer;
-    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.15);
+/* Gestione interazioni: i 58 tasti non registrabili non rispondono al mouse */
+.keyboard.sampler-mode .s-inactive {
+    pointer-events: none !important;
+    cursor: default !important;
 }
+
+/* I 30 tasti abilitati rispondono al mouse */
+.keyboard.sampler-mode .s-active {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* EFFETTO HOVER: si illuminano SOLO le 30 note attivate quando ci passi sopra */
 .keyboard.sampler-mode .key-white.s-active:hover {
-    background: #ffb86c !important;
-}
-
-.keyboard.sampler-mode .key-black.s-active {
-    background: #1e1e24 !important;
-    pointer-events: auto !important;
-    cursor: pointer;
-    border: 1px solid #ff79c6 !important; /* Evidenzia il tasto nero abilitato */
+    background: #ffb86c !important; /* Si illumina di arancione chiaro */
 }
 .keyboard.sampler-mode .key-black.s-active:hover {
-    background: #ffb86c !important;
+    background: #ffb86c !important; /* Si illumina di arancione chiaro */
     border-color: #ffb86c !important;
 }
 
-/* Stati di Selezione, Registrazione e Caricamento */
+/* Stati di Selezione e Registrazione */
 .keyboard.sampler-mode .key-white.s-selected,
 .keyboard.sampler-mode .key-black.s-selected {
-    background: #ff79c6 !important;
+    background: #ff79c6 !important; /* Rosa quando selezionato */
 }
 
 .keyboard.sampler-mode .key-white.s-recorded,
 .keyboard.sampler-mode .key-black.s-recorded {
-    background: #50fa7b !important;
+    background: #50fa7b !important; /* Verde quando registrato */
     color: #000000 !important;
 }
 
-/* Etichette dei Tasti Attivi */
+/* Etichette dei Tasti Attivi (solo la lettera) */
 .s-label { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000; pointer-events: none; }
 .key-black .s-label { color: #fff; bottom: 10px; font-size: 9px; }
 .key-black.s-recorded .s-label { color: #000000; }

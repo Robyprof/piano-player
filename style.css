@@ -63,27 +63,64 @@ button.stop-btn { background-color: var(--accent-sad); color: white; border: non
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { background: var(--card-bg); width: 95%; max-width: 1200px; border-radius: 10px; border: 1px solid #44475a; padding: 25px; display: flex; flex-direction: column; gap: 15px;}
 
-/* TASTIERA MODAL IDENTICA ALLA PRINCIPALE */
-.sampler-keyboard-wrap { position: relative; width: 100%; height: 210px; overflow: hidden; background: #000; border: 2px solid #44475a; border-radius: 6px; margin-top: 15px; }
-.sampler-kb-inner { display: flex; position: relative; height: 100%; width: 100%; padding-bottom: 4px; }
-.s-key-white { flex: 1; border-right: 1px solid #111; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; position: relative; pointer-events: none; }
-.s-key-black { position: absolute; width: 1.15%; height: 60%; z-index: 10; pointer-events: none; border-bottom-left-radius: 3px; border-bottom-right-radius: 3px; }
+/* TASTIERA MODAL ERIDITATA DIRETTAMENTE DALLA TASTIERA DI PLAYBACK */
+.sampler-keyboard-wrap { position: relative; width: 100%; height: 210px; overflow: hidden; border: 2px solid #44475a; border-radius: 6px; margin-top: 15px; }
 
-/* Stati Inattivi (58 Tasti Oscurati) */
-.s-key-white.s-inactive { background: #3a3c48; border-right: 1px solid #222; }
-.s-key-black.s-inactive { background: #1a1a20; }
+/* SOVRASCRITTURE MODALITA' SAMPLER (.sampler-mode) */
+.keyboard.sampler-mode .key-white.s-inactive {
+    background: #3e404f !important;
+    border-right: 1px solid #22232a !important;
+    pointer-events: none !important;
+    opacity: 0.5;
+}
+.keyboard.sampler-mode .key-black.s-inactive {
+    background: #111216 !important;
+    pointer-events: none !important;
+    opacity: 0.3;
+}
 
-/* Stati Attivi (30 Tasti Illuminati e Cliccabili) */
-.s-key-white.s-active { background: #ffffff; pointer-events: auto; cursor: pointer; transition: 0.2s; }
-.s-key-white.s-active:hover { background: #ffb86c; }
-.s-key-black.s-active { background: #1e1e24; pointer-events: auto; cursor: pointer; transition: 0.2s; border: 1px solid #44475a; }
-.s-key-black.s-active:hover { background: #ffb86c; border-color: #ffb86c; }
-.s-key-white.s-selected, .s-key-black.s-selected { background: #ff79c6 !important; }
-.s-key-white.s-recorded, .s-key-black.s-recorded { background: #50fa7b !important; color: #000; }
+.keyboard.sampler-mode .key-white.s-active {
+    background: #ffffff !important;
+    pointer-events: auto !important;
+    cursor: pointer;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.15);
+}
+.keyboard.sampler-mode .key-white.s-active:hover {
+    background: #ffb86c !important;
+}
 
-.s-label { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000; pointer-events: none;}
-.s-key-black .s-label { color: #fff; bottom: 10px; font-size: 9px;}
-.s-key-black.s-recorded .s-label { color: #000; }
+.keyboard.sampler-mode .key-black.s-active {
+    background: #1e1e24 !important;
+    pointer-events: auto !important;
+    cursor: pointer;
+    border: 1px solid #ff79c6 !important; /* Evidenzia il tasto nero abilitato */
+}
+.keyboard.sampler-mode .key-black.s-active:hover {
+    background: #ffb86c !important;
+    border-color: #ffb86c !important;
+}
+
+/* Stati di Selezione, Registrazione e Caricamento */
+.keyboard.sampler-mode .key-white.s-selected,
+.keyboard.sampler-mode .key-black.s-selected {
+    background: #ff79c6 !important;
+}
+
+.keyboard.sampler-mode .key-white.s-recorded,
+.keyboard.sampler-mode .key-black.s-recorded {
+    background: #50fa7b !important;
+    color: #000000 !important;
+}
+
+/* Etichette dei Tasti Attivi */
+.s-label { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000; pointer-events: none; }
+.key-black .s-label { color: #fff; bottom: 10px; font-size: 9px; }
+.key-black.s-recorded .s-label { color: #000000; }
+
+@media (max-width: 1000px) {
+    .s-label { font-size: 8px; }
+    .key-black .s-label { font-size: 7px; }
+}
 
 .sampler-action-panel { display: none; background: #212435; padding: 20px; border-radius: 6px; border: 1px solid #44475a; text-align: center;}
 .sampler-action-panel h3 { margin-top: 0; color: #ffb86c; }

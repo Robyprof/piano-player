@@ -7,7 +7,7 @@ const pianoBuffers = {};
 
 let schedulerWorker;
 window.customInstrumentBuffers = {}; 
-let mediaRecorder = null;
+window.mediaRecorder = null; // Portato su window per evitare problemi di scope
 let recordingChunks = [];
 let currentSelectedSamplerNote = null;
 let recordingTimeout = null;
@@ -116,21 +116,21 @@ window.toggleRecording = async function() {
     const noteName = currentSelectedSamplerNote.name;
     const btn = document.getElementById('btn-rec-modal');
     
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop(); btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono"; clearTimeout(recordingTimeout); return;
+    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') {
+        window.mediaRecorder.stop(); btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono"; clearTimeout(recordingTimeout); return;
     }
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream); recordingChunks = [];
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data); };
-        mediaRecorder.onstop = () => {
+        window.mediaRecorder = new MediaRecorder(stream); recordingChunks = [];
+        window.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data); };
+        window.mediaRecorder.onstop = () => {
             window.customInstrumentBuffers[noteName] = new Blob(recordingChunks, { type: 'audio/webm' }); 
             btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
             window.updateSamplerProgress(); stream.getTracks().forEach(track => track.stop());
         };
-        mediaRecorder.start(); btn.classList.add('recording-pulse'); btn.innerText = "⏹ Ferma Registrazione";
-        recordingTimeout = setTimeout(() => { if (mediaRecorder.state === 'recording') { mediaRecorder.stop(); alert("Limite di 25s raggiunto."); } }, 25000);
+        window.mediaRecorder.start(); btn.classList.add('recording-pulse'); btn.innerText = "⏹ Ferma Registrazione";
+        recordingTimeout = setTimeout(() => { if (window.mediaRecorder.state === 'recording') { window.mediaRecorder.stop(); alert("Limite di 25s raggiunto."); } }, 25000);
     } catch (err) { alert("Errore microfono."); }
 };
 
@@ -149,4 +149,28 @@ window.exportInstrumentZip = function() {
     zip.generateAsync({type:"blob"}).then(content => {
         const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = "strumento_piano_custom.zip"; a.click();
     });
+};
+
+// [HOOK: PLAY_RECORDED_SAMPLE]
+// SUONA IL CAMPIONE REGISTRATO DALL'UTENTE QUANDO CLICCA SULLA TASTIERA DI PROVA
+window.playRecordedSample = async function(noteName) {
+    const blob = window.customInstrumentBuffers[noteName];
+    if (!blob) {
+        // Se non c'è ancora un campione registrato, suoniamo la nota di default dal campionatore principale (se caricato)
+        const midi = window.activeMidi30[window.noteNames30.indexOf(noteName)];
+        if (pianoBuffers[midi]) {
+            window.playSampledNote(midi, audioCtx.currentTime, 1.5, 1.0, 'manual');
+        } else {
+            console.log("Audio di default non ancora caricato per midi:", midi);
+        }
+        return;
+    }
+    // Suoniamo il campione registrato/caricato dall'utente
+    try {
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+    } catch (e) {
+        console.error("Errore durante la riproduzione del campione registrato:", e);
+    }
 };

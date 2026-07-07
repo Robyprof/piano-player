@@ -30,12 +30,15 @@ window.buildMainKeyboard = function() {
 window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
     kb.innerHTML = '';
+    
+    // Eredita la struttura esatta e le classi della tastiera principale più la classe .sampler-mode
+    kb.className = "keyboard sampler-mode"; 
+    
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
     let totalWhiteKeys = 0; const whiteKeyIndices = {};
     for (let m = window.startMidi; m <= window.endMidi; m++) if (!notesMap[m % 12].isBlack) whiteKeyIndices[m] = totalWhiteKeys++;
 
-    const whiteContainer = document.createElement('div'); whiteContainer.className = 'sampler-white-keys';
-    const blackContainer = document.createElement('div'); blackContainer.className = 'sampler-black-keys';
+    kb.innerHTML = `<div class="white-keys-container" id="samplerWhiteKeys"></div><div class="black-keys-container" id="blackKeysSampler" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>`;
 
     for (let m = window.startMidi; m <= window.endMidi; m++) {
         const isBlack = notesMap[m % 12].isBlack;
@@ -45,14 +48,15 @@ window.renderSamplerKeyboard = function() {
         let keyDiv = document.createElement('div'); keyDiv.id = `s-key-${m}`;
         
         if (!isBlack) {
-            keyDiv.className = `s-key-white ${isActive30 ? 's-active' : 's-inactive'}`;
+            keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
             if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
-            whiteContainer.appendChild(keyDiv);
+            document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
-            keyDiv.className = `s-key-black ${isActive30 ? 's-active' : 's-inactive'}`;
+            keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
             keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
+            keyDiv.style.pointerEvents = 'auto'; // Fondamentale per ricevere i click sopra il container trasparente
             if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
-            blackContainer.appendChild(keyDiv);
+            document.getElementById('blackKeysSampler').appendChild(keyDiv);
         }
 
         if (isActive30) {
@@ -60,7 +64,6 @@ window.renderSamplerKeyboard = function() {
             keyDiv.ontouchstart = (e) => { e.preventDefault(); window.selectSamplerNote(m, noteName); };
         }
     }
-    kb.appendChild(whiteContainer); kb.appendChild(blackContainer);
 };
 
 // [HOOK: SAMPLER_MODAL_UI]
@@ -69,7 +72,10 @@ window.openSamplerModal = function() {
     window.renderSamplerKeyboard(); window.updateSamplerProgress();
     document.getElementById('samplerActionPanel').style.display = 'none';
 };
-window.closeSamplerModal = function() { document.getElementById('samplerModal').style.display = 'none'; if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); };
+window.closeSamplerModal = function() { 
+    document.getElementById('samplerModal').style.display = 'none'; 
+    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') window.mediaRecorder.stop(); 
+};
 
 window.selectSamplerNote = function(midi, name) {
     if (currentSelectedSamplerNote) {
@@ -80,12 +86,17 @@ window.selectSamplerNote = function(midi, name) {
     const newKey = document.getElementById(`s-key-${midi}`);
     if (newKey) newKey.classList.add('s-selected');
 
-    document.getElementById('samplerSelectedNoteLabel').innerText = `Registrazione: ${name}`;
+    document.getElementById('samplerSelectedNoteLabel').innerText = `Registrazione in corso per la Nota: ${name} 🎹`;
     document.getElementById('samplerActionPanel').style.display = 'block';
 
     const btn = document.getElementById('btn-rec-modal');
-    if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); clearTimeout(recordingTimeout); }
+    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') { window.mediaRecorder.stop(); clearTimeout(recordingTimeout); }
     btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
+
+    // NUOVA FUNZIONE: Suona subito la nota per provarla mentre registri!
+    if (window.playRecordedSample) {
+        window.playRecordedSample(name);
+    }
 };
 
 window.updateSamplerProgress = function() {
@@ -94,7 +105,13 @@ window.updateSamplerProgress = function() {
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
-        if (keyEl) window.customInstrumentBuffers[name] ? keyEl.classList.add('s-recorded') : keyEl.classList.remove('s-recorded');
+        if (keyEl) {
+            if (window.customInstrumentBuffers[name]) {
+                keyEl.classList.add('s-recorded');
+            } else {
+                keyEl.classList.remove('s-recorded');
+            }
+        }
     }
 };
 
@@ -140,7 +157,6 @@ window.renderSynthesia = function(now, elapsed) {
 };
 
 // [HOOK: STAFF_RENDER]
-function midiToDiatonicStep(midi) { const octave = Math.floor(midi / 12) - 1; const noteClass = midi % 12; const cMajOffsets = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6]; return octave * 7 + cMajOffsets[noteClass]; }
 window.initStaffCanvas = function() {
     staffCanvas = document.getElementById('staffCanvas'); if (!staffCanvas) return;
     staffCtx = staffCanvas.getContext('2d');

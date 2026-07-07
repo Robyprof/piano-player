@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Player (Pro Edition)</title>
+    <!-- [HOOK: EXTERNAL_SCRIPTS] -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Piano Player (Pro Edition)</h1>
+        <p class="subtitle">Supporto Nativo Cloud, Play in Background & Registrazione Strumenti</p>
+
+        <!-- [HOOK: TABS_MENU] -->
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="window.switchTab('tab-audio', this)">🎹 Sorgente Audio</button>
+            <button class="tab-btn" onclick="window.switchTab('tab-score', this)">📂 Spartito & Cloud</button>
+            <button class="tab-btn" onclick="window.switchTab('tab-play', this)">🎵 Suona Spartito</button>
+        </div>
+
+        <!-- [HOOK: TAB_AUDIO] -->
+        <div id="tab-audio" class="tab-content active">
+            <div class="panel audio-panel">
+                <h3 style="margin: 0; color: #f1fa8c;">Sorgente Audio (Strumento)</h3>
+                <p style="margin: 0; font-size: 0.9rem; color: #a4b3c6;">Scegli lo strumento dal DB o crea un nuovo campionamento.</p>
+                <div class="audio-controls" style="margin-bottom: 10px;">
+                    <select id="audioSourceSelect" class="db-select" style="flex: 1; max-width: 300px;">
+                        <option value="https://tonejs.github.io/audio/salamander/">Yamaha C5 (Default)</option>
+                    </select>
+                    <button onclick="window.initAudioEngine()">Carica Suoni 🎹</button>
+                    <button onclick="window.testAudioNote()" style="background-color: #ffb86c; color:#000;">Test Nota (C4)</button>
+                    <span id="audioStatus" style="font-weight: bold; color: #ff5555;">Non Caricato ❌</span>
+                </div>
+                <div class="audio-controls" style="border-top: 1px dashed #44445a; padding-top: 10px;">
+                    <input type="text" id="newAudioSourceName" class="audio-input" placeholder="Nome strumento da salvare..." style="flex: 1;">
+                    <input type="text" id="newAudioSourceUrl" class="audio-input" placeholder="URL cartella GitHub/Web..." style="flex: 2;">
+                    <button onclick="window.saveAudioSourceToFirebase()" style="background-color: var(--accent-hope); color: #282a36; border: none;">Salva URL su DB ☁️</button>
+                    <button onclick="window.openSamplerModal()" style="background-color: #bd93f9; border: none;">Crea Nuovo Strumento 🎤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- [HOOK: TAB_SCORE] -->
+        <div id="tab-score" class="tab-content">
+            <div class="panel">
+                <!-- METODO A -->
+                <div class="loader-row">
+                    <div>
+                        <span style="font-weight: bold; font-size: 1.1rem; color: #ff79c6;">Metodo A: File Locale</span><br>
+                        <span style="font-size: 0.85rem; color: #6272a4;">Carica dal tuo PC e ascolta in "Suona Spartito".</span>
+                    </div>
+                    <div style="flex:1; max-width: 600px;">
+                        <label class="file-input-btn" for="jsonLoader">Sfoglia Computer 📂</label>
+                        <input type="file" id="jsonLoader" accept=".json">
+                    </div>
+                </div>
+
+                <!-- SALVATAGGIO IN CLOUD -->
+                <div class="loader-row" style="background: #1c1f30; padding: 15px; border-radius: 8px;">
+                    <div>
+                        <span style="font-weight: bold; font-size: 1.1rem; color: #ffb86c;">Archivia nel Cloud</span><br>
+                        <span style="font-size: 0.85rem; color: #6272a4;">Salva lo spartito locale (Metodo A) nel DB Firebase (Metodo C).</span>
+                    </div>
+                    <div class="url-input-group">
+                        <input type="text" id="saveAuthorInput" class="url-input" placeholder="Autore / Raccolta...">
+                        <input type="text" id="saveSongInput" class="url-input" placeholder="Nome Brano...">
+                        <button onclick="window.saveSongToFirebase()" style="background: #ffb86c; color:#000;">Archivia su DB ☁️</button>
+                    </div>
+                </div>
+
+                <!-- METODO C -->
+                <div class="loader-row" style="border-bottom: none; padding-bottom: 0;">
+                    <div>
+                        <span style="font-weight: bold; font-size: 1.1rem; color: #50fa7b;">Metodo C: Firebase Cloud</span><br>
+                        <span style="font-size: 0.85rem; color: #6272a4;">Carica brani già archiviati.</span>
+                    </div>
+                    <div class="db-select-group">
+                        <select id="authorSelect" class="db-select" onchange="window.onAuthorSelected(this.value)">
+                            <option value="">-- Autore / Raccolta --</option>
+                        </select>
+                        <select id="songSelect" class="db-select" disabled onchange="window.onSongSelected(this.value)">
+                            <option value="">-- Brano --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="title-wrapper">
+                <h2 id="stdName" style="color: #f1fa8c; margin: 0; font-size: 1.8rem;">Nessun brano caricato</h2>
+                <p id="stdSub" style="color: #6272a4; margin: 5px 0 0 0; font-size: 1rem;">Vai alla scheda "Suona Spartito" per visualizzarlo.</p>
+            </div>
+        </div>
+
+        <!-- [HOOK: TAB_PLAY] -->
+        <div id="tab-play" class="tab-content">
+            <div class="sheet-music-wrapper" id="spartitoBox">
+                <canvas id="staffCanvas" style="width: 100%; height: 392px; background-color: #ffffff; border-radius: 6px; display: block;"></canvas>
+            </div>
+
+            <div class="keyboard-wrapper">
+                <div class="synthesia-container">
+                    <canvas id="synthesiaCanvas" class="synthesia-canvas"></canvas>
+                    <div class="keyboard" id="keyboard"></div>
+                </div>
+            </div>
+
+            <div class="sequencer-panel">
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="dashboard-controls">
+                    <div class="params-group">
+                        <div class="param-item">
+                            <label>Velocità: <span id="bpmVal">105</span> BPM</label>
+                            <input type="range" id="bpmSlider" min="50" max="240" value="105" oninput="window.updateBPM(this.value)">
+                        </div>
+                        <div class="param-item" style="justify-content: center;">
+                            <label class="checkbox-container"><input type="checkbox" id="rhythmToggle" checked><span id="rhythmText">Sinistra 🎹</span></label>
+                        </div>
+                        <div class="param-item" style="justify-content: center;">
+                            <label class="checkbox-container"><input type="checkbox" id="melodyToggle" checked><span id="melodyText">Destra 🎹</span></label>
+                        </div>
+                    </div>
+                    <div class="btn-action-group">
+                        <button class="play-btn" onclick="window.playComposition()">▶️ Play</button>
+                        <button class="stop-btn" onclick="window.stopPlayback()">⏹️ Stop</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [HOOK: MODAL_SAMPLER] -->
+    <div class="modal-overlay" id="samplerModal">
+        <div class="modal-content">
+            <div style="display:flex; justify-content: space-between; align-items:center;">
+                <div>
+                    <h2 style="color: #8be9fd; margin:0;">Crea Strumento (Campionatore) 🎹</h2>
+                    <p style="color: #a4b3c6; margin:5px 0 0 0; font-size:0.9rem;">
+                        Clicca su una delle 30 note attivate (bianche/nere evidenziate) per registrarla. Le altre 58 sono bloccate.
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span id="samplerProgressText" style="font-weight:bold; color:#50fa7b; display:block; margin-bottom: 5px;">Campioni caricati: 0 / 30</span>
+                    <button onclick="window.exportInstrumentZip()" style="background-color: var(--accent-hope); color:#000;">Scarica ZIP 📦</button>
+                    <button onclick="window.closeSamplerModal()" style="background-color: #44475a;">Chiudi</button>
+                </div>
+            </div>
+            
+            <div class="sampler-keyboard-wrap">
+                <div class="sampler-kb-inner" id="samplerKeyboardGen"></div>
+            </div>
+
+            <div class="sampler-action-panel" id="samplerActionPanel">
+                <h3 id="samplerSelectedNoteLabel">Seleziona una nota dalla tastiera</h3>
+                <div>
+                    <button class="btn-rec" id="btn-rec-modal" onclick="window.toggleRecording()">🎤 Registra Microfono</button>
+                    <button class="btn-upload">📂 Carica File Audio <input type="file" accept="audio/*" onchange="window.handleUploadNote(event)"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [HOOK: MODULES] -->
+    <script src="app.js"></script>
+    <script src="audio.js"></script>
+    <script src="firebase.js"></script>
+    <script src="ui.js"></script>
+</body>
+</html>

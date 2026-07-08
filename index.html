@@ -86,22 +86,33 @@
                             </select>
                         </div>
 
-                        <!-- NUOVO: Pannello Azioni Brano Selezionato (Testo ed Eliminazione) -->
-                        <div id="cloudActionsPanel" style="display: none; background: #191b28; padding: 15px; border-radius: 8px; border: 1px solid #44475a; margin-top: 5px;">
-                            <textarea id="songNotesArea" placeholder="Inserisci qui il testo, gli appunti o le note per questo brano..." style="width: 100%; height: 90px; background: #0d0e15; color: var(--text-light); border: 1px solid #44475a; border-radius: 6px; padding: 10px; margin-bottom: 12px; resize: vertical; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;"></textarea>
+                        <!-- NUOVO: Pannello Azioni RACCOLTA -->
+                        <div id="authorActionsPanel" style="display: none; background: #191b28; padding: 15px; border-radius: 8px; border: 1px solid #44475a; margin-top: 5px;">
+                            <textarea id="authorNotesArea" placeholder="Inserisci qui appunti o descrizione per l'INTERA RACCOLTA..." style="width: 100%; height: 70px; background: #0d0e15; color: var(--text-light); border: 1px dashed #bd93f9; border-radius: 6px; padding: 10px; margin-bottom: 12px; resize: vertical; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;"></textarea>
                             
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button onclick="window.saveSongNotes()" style="background-color: var(--accent-hope); color: #000; border: none;">💾 Salva Testo/Note</button>
+                                <button onclick="window.saveAuthorNotes()" style="background-color: #bd93f9; color: #000; border: none;">💾 Salva Note Raccolta</button>
+                                <div style="flex: 1;"></div> <!-- Distanziatore -->
+                                <button onclick="window.deleteCurrentAuthor()" style="background-color: #ff0000; color: white; border: none;">💣 Elimina Intera Raccolta</button>
+                            </div>
+                        </div>
+
+                        <!-- NUOVO: Pannello Azioni BRANO -->
+                        <div id="songActionsPanel" style="display: none; background: #191b28; padding: 15px; border-radius: 8px; border: 1px solid #44475a; margin-top: 5px;">
+                            <textarea id="songNotesArea" placeholder="Inserisci qui testo o appunti specifici per questo SINGOLO BRANO..." style="width: 100%; height: 70px; background: #0d0e15; color: var(--text-light); border: 1px dashed #50fa7b; border-radius: 6px; padding: 10px; margin-bottom: 12px; resize: vertical; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;"></textarea>
+                            
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button onclick="window.saveSongNotes()" style="background-color: var(--accent-hope); color: #000; border: none;">💾 Salva Note Brano</button>
                                 <div style="flex: 1;"></div> <!-- Distanziatore -->
                                 <button onclick="window.deleteCurrentSong()" style="background-color: #ff5555; color: white; border: none;">🗑️ Elimina Brano</button>
-                                <button onclick="window.deleteCurrentAuthor()" style="background-color: #ff0000; color: white; border: none;">💣 Elimina Intera Raccolta</button>
                             </div>
                         </div>
                     </div>
                 </div>
-</div>
+            </div>
             
             <div class="title-wrapper">
+
                 <h2 id="stdName" style="color: #f1fa8c; margin: 0; font-size: 1.8rem;">Nessun brano caricato</h2>
                 <p id="stdSub" style="color: #6272a4; margin: 5px 0 0 0; font-size: 1rem;">Vai alla scheda "Suona Spartito" per visualizzarlo.</p>
             </div>

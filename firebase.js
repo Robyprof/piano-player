@@ -38,13 +38,29 @@ window.loadSongsListFromFirebase = async function() {
     try {
         const response = await fetch(`${window.FIREBASE_DB_URL}/scores.json`);
         window.firebaseDatabase = await response.json();
+        
         const authorSelect = document.getElementById('authorSelect');
         authorSelect.innerHTML = '<option value="">-- Autore / Raccolta --</option>';
+        
+        const datalist = document.getElementById('existingAuthorsList');
+        if (datalist) datalist.innerHTML = ''; // Svuota datalist
+        
         if (window.firebaseDatabase) {
             for (const authorName of Object.keys(window.firebaseDatabase)) {
+                const formattedName = authorName.replace(/_/g, " ").toUpperCase();
+                
+                // Popola la Select (Esplorazione)
                 const opt = document.createElement('option');
-                opt.value = authorName; opt.textContent = authorName.replace(/_/g, " ").toUpperCase();
+                opt.value = authorName; 
+                opt.textContent = formattedName;
                 authorSelect.appendChild(opt);
+                
+                // Popola il Datalist (Autocompletamento salvataggio)
+                if (datalist) {
+                    const dataOpt = document.createElement('option');
+                    dataOpt.value = authorName; // Mettiamo la chiave pura nel datalist
+                    datalist.appendChild(dataOpt);
+                }
             }
         }
     } catch (e) { console.error(e); }
@@ -69,13 +85,11 @@ window.onAuthorSelected = function(authorKey) {
     // Gestione Note Raccolta
     if (authorPanel) authorPanel.style.display = 'block';
     if (authorNotesArea) {
-        // Le note della raccolta le salviamo sotto la chiave speciale '_authorNotes'
         authorNotesArea.value = window.firebaseDatabase[authorKey]['_authorNotes'] || "";
     }
 
     // Popola select dei brani
     for (const [songKey, songObj] of Object.entries(window.firebaseDatabase[authorKey])) {
-        // Ignora la chiave speciale delle note raccolta durante la creazione del menu a tendina
         if (songKey === '_authorNotes') continue; 
         const opt = document.createElement('option');
         opt.value = songKey; opt.textContent = songObj.name || songKey.replace(/_/g, " ");
@@ -109,62 +123,46 @@ window.onSongSelected = async function(songKey) {
     } catch(e) { alert("Errore download: " + e); }
 };
 
-// [NUOVO] Funzione per salvare le note della RACCOLTA nel Cloud
 window.saveAuthorNotes = async function() {
     const authorKey = document.getElementById('authorSelect').value;
     const notesArea = document.getElementById('authorNotesArea');
-    
     if (!authorKey) return alert("Seleziona prima una raccolta!");
     const newNotes = notesArea.value;
 
     try {
         const response = await fetch(`${window.FIREBASE_DB_URL}/scores/${authorKey}/_authorNotes.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newNotes)
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newNotes)
         });
-        
         if (response.ok) {
             if (window.firebaseDatabase && window.firebaseDatabase[authorKey]) {
-                window.firebaseDatabase[authorKey]['_authorNotes'] = newNotes; // Aggiorna cache locale
+                window.firebaseDatabase[authorKey]['_authorNotes'] = newNotes;
             }
             alert("Note della Raccolta salvate con successo nel Cloud! 💾");
-        } else {
-            alert("Errore durante il salvataggio.");
-        }
+        } else { alert("Errore durante il salvataggio."); }
     } catch (e) { alert("Errore di rete: " + e); }
 };
 
-// [NUOVO] Funzione per salvare le note del BRANO nel Cloud
 window.saveSongNotes = async function() {
     const authorKey = document.getElementById('authorSelect').value;
     const songKey = document.getElementById('songSelect').value;
     const notesArea = document.getElementById('songNotesArea');
-    
     if (!authorKey || !songKey) return alert("Seleziona prima un brano!");
     const newNotes = notesArea.value;
 
     try {
         const response = await fetch(`${window.FIREBASE_DB_URL}/scores/${authorKey}/${songKey}/notes.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newNotes)
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newNotes)
         });
-        
         if (response.ok) {
-            if (window.loadedSong) window.loadedSong.notes = newNotes; // Aggiorna cache locale
+            if (window.loadedSong) window.loadedSong.notes = newNotes;
             alert("Note del Brano salvate con successo nel Cloud! 💾");
-        } else {
-            alert("Errore durante il salvataggio.");
-        }
+        } else { alert("Errore durante il salvataggio."); }
     } catch (e) { alert("Errore di rete: " + e); }
 };
 
-// [NUOVO] Funzione per eliminare un singolo brano dal DB
 window.deleteCurrentSong = async function() {
     const authorKey = document.getElementById('authorSelect').value;
     const songKey = document.getElementById('songSelect').value;
-    
     if (!authorKey || !songKey) return alert("Nessun brano selezionato.");
     if (!confirm(`Sei sicuro di voler eliminare definitivamente il brano "${songKey}"?
 
@@ -181,11 +179,9 @@ Questa azione NON può essere annullata.`)) return;
     } catch (e) { alert("Errore di rete: " + e); }
 };
 
-// [NUOVO] Funzione per eliminare l'intera raccolta dal DB
 window.deleteCurrentAuthor = async function() {
     const authorKey = document.getElementById('authorSelect').value;
     if (!authorKey) return alert("Nessuna raccolta selezionata.");
-    
     if (!confirm(`💣 ATTENZIONE!
 Vuoi davvero eliminare l'intera raccolta "${authorKey}" e TUTTI i suoi brani?
 

@@ -143,12 +143,48 @@ window.initSynthesiaCanvas = function() {
 window.renderSynthesia = function(now, elapsed) {
     if (!synthCtx || !synthCanvas) return;
     
-    // SFONDO CIELO CELESTE SFUMATO [3]
-    let gradient = synthCtx.createLinearGradient(0, 0, 0, synthCanvas.height);
-    gradient.addColorStop(0, '#a1c4fd'); // Celeste carico in alto
-    gradient.addColorStop(1, '#c2e9fb'); // Celeste chiarissimo sfumato in basso
-    synthCtx.fillStyle = gradient;
+    // SFONDO SCURO E GRIGLIE [MOD]
+    synthCtx.fillStyle = '#0a0a1a'; // Sfondo blu scuro in stile Synthesia
     synthCtx.fillRect(0, 0, synthCanvas.width, synthCanvas.height);
+
+    if (isPlaying) {
+        const bpm = parseFloat(document.getElementById('bpmSlider').value);
+        const beatDuration = 60 / bpm;
+        
+        // --- Griglia Verticale (Linee ogni Ottava sul DO) ---
+        synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        synthCtx.lineWidth = 1;
+        for (let m = window.startMidi; m <= window.endMidi; m++) {
+            if (m % 12 === 0) { // Midi % 12 === 0 è sempre la nota Do (C)
+                const map = canvasMap[m];
+                if (map && !map.isBlack) {
+                    const x = map.xPct * synthCanvas.width;
+                    synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); synthCtx.stroke();
+                }
+            }
+        }
+
+        // --- Griglia Orizzontale (Fine Battuta Pentagramma) ---
+        let beatsPerMeasure = 4;
+        if (window.loadedSong && window.loadedSong.meter) {
+            const match = window.loadedSong.meter.match(/^(\d+)\//);
+            if (match) beatsPerMeasure = parseInt(match[1], 10);
+        }
+        const currentBeat = elapsed / beatDuration;
+        const startMeasure = Math.floor(currentBeat / beatsPerMeasure);
+        const endMeasure = Math.ceil((currentBeat + (lookaheadSec / beatDuration)) / beatsPerMeasure);
+
+        synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        synthCtx.lineWidth = 1;
+        for (let m = startMeasure; m <= endMeasure; m++) {
+            const measureBeat = m * beatsPerMeasure;
+            const measureSec = measureBeat * beatDuration;
+            if (measureSec >= elapsed && measureSec <= elapsed + lookaheadSec) {
+                let y = synthCanvas.height - ((measureSec - elapsed) / lookaheadSec) * synthCanvas.height;
+                synthCtx.beginPath(); synthCtx.moveTo(0, y); synthCtx.lineTo(synthCanvas.width, y); synthCtx.stroke();
+            }
+        }
+    }
     
     if (!isPlaying || !window.visualTimeline) return;
 
@@ -170,10 +206,10 @@ window.renderSynthesia = function(now, elapsed) {
         let h = Math.max(yBottom - yTop, 4); // Minimo 4px di altezza
         let y = yTop;
 
-        // COLORI CHIARI PASTELLO DIFFERENTI PER LE MANI [3]
-        // Sinistra (Chord) = Giallo Crema chiarissimo, Destra (Melody) = Rosa Confetto chiarissimo
-        synthCtx.fillStyle = note.type === 'chord' ? '#ffdfba' : '#ffccd5';
-        synthCtx.strokeStyle = note.type === 'chord' ? '#e0af84' : '#e59fa5';
+        // COLORI VIVACI PER MANO DESTRA E SINISTRA [MOD]
+        // Sinistra = Viola/Rosa, Destra = Verde
+        synthCtx.fillStyle = note.type === 'chord' ? '#c77df3' : '#50fa7b';
+        synthCtx.strokeStyle = note.type === 'chord' ? '#9d5cc4' : '#3cb360';
         synthCtx.lineWidth = 1.5;
 
         let x, w;
@@ -339,9 +375,16 @@ function animateProgress() {
     if (elapsed >= totalDurationSec) { window.stopPlayback(); return; }
     document.getElementById('progressBar').style.width = `${(elapsed / totalDurationSec) * 100}%`;
     
-    const activeMidiNotes = scheduledNotes.filter(n => now >= n.start && now < n.end).map(n => n.midi);
+    const activeNotes = scheduledNotes.filter(n => now >= n.start && now < n.end);
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => {
-        if(!k.classList.contains('manual-active')) k.classList.toggle('active-key', activeMidiNotes.includes(parseInt(k.dataset.midi)));
+        if(!k.classList.contains('manual-active')) {
+            const midi = parseInt(k.dataset.midi);
+            const activeNote = activeNotes.find(n => n.midi === midi);
+            k.classList.remove('active-key', 'active-chord', 'active-melody');
+            if (activeNote) {
+                k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
+            }
+        }
     });
     progressAnimationId = requestAnimationFrame(animateProgress);
 }

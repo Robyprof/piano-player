@@ -176,3 +176,20 @@ window.toggleSheetView = function() {
 window.openCloudManager = function() {
     document.getElementById('cloudModal').style.display = 'flex';
 };
+
+// [HOOK: MOBILE_SIDEBAR]
+window.toggleSidebar = function() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('mobile-open');
+};
+
+// Chiudi la sidebar se si clicca fuori (nello stage) su mobile
+window.addEventListener('click', (e) => {
+    const sidebar = document.querySelector('.sidebar');
+    const menuBtn = document.querySelector('.mobile-menu-btn');
+    if (window.innerWidth <= 1024 && sidebar && sidebar.classList.contains('mobile-open')) {
+        if (!sidebar.contains(e.target) && !menuBtn.contains(e.target)) {
+            sidebar.classList.remove('mobile-open');
+        }
+    }
+});

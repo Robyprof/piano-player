@@ -639,21 +639,128 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* ==========================================================================
-   RESPONSIVE DESIGN (MEDIA QUERIES)
+   RESPONSIVE DESIGN (MEDIA QUERIES PER SMARTPHONE E TABLET)
    ========================================================================== */
+
+/* Nascondi il pulsante menu su Desktop */
+.mobile-menu-btn {
+    display: none;
+    font-size: 1.8rem;
+    color: var(--accent-melody);
+    margin-right: 15px;
+}
+
 @media (max-width: 1024px) {
+    /* 1. Gestione Layout Generale */
     .app-layout {
         flex-direction: column;
+        position: relative;
     }
+
+    /* 2. Trasformazione Sidebar in "Off-Canvas Drawer" a comparsa */
     .sidebar {
-        width: 100vw;
-        height: auto;
-        max-height: 40vh;
+        position: fixed;
+        top: 0;
+        left: -100%; /* Nascosta di default */
+        width: 85%;
+        max-width: 350px;
+        height: 100vh;
+        max-height: 100vh;
+        z-index: 9999;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 5px 0 25px rgba(0,0,0,0.8);
+        border-right: 2px solid var(--accent-primary);
     }
+
+    .sidebar.mobile-open {
+        left: 0; /* Entra nello schermo */
+    }
+
+    .mobile-menu-btn {
+        display: block; /* Mostra l'hamburger menu */
+    }
+
+    /* 3. Ottimizzazione della Top Bar per schermi piccoli */
     .top-bar {
-        padding: 0 20px;
+        height: auto;
+        min-height: 80px;
+        padding: 10px 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
     }
-    .sampler-grid-controls {
-        grid-template-columns: 1fr;
+
+    .mobile-menu-btn {
+        position: absolute;
+        left: 15px;
+        top: 15px;
+        margin: 0;
+    }
+
+    .track-info {
+        width: 100%;
+        text-align: center;
+        margin-top: 5px;
+    }
+
+    .track-info h2 { font-size: 1.1rem; }
+    .track-info h3 { font-size: 0.8rem; }
+
+    .playback-controls {
+        width: 100%;
+        justify-content: center;
+        margin: 5px 0;
+    }
+
+    .main-play-btn {
+        padding: 10px 25px;
+        font-size: 1.1rem;
+    }
+
+    .tempo-control {
+        width: 100%;
+        flex-direction: row;
+        justify-content: center;
+        gap: 15px;
+    }
+    
+    #bpmSlider { width: 150px; }
+
+    /* 4. Scroll Orizzontale Sincronizzato per Canvases e Tastiera */
+    /* Questo assicura che i tasti siano premibili e Synthesia non perda l'allineamento */
+    .stage-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
+    }
+
+    /* Forziamo una larghezza minima per garantire che i tasti siano abbastanza larghi da toccare col dito */
+    .synthesia-canvas,
+    .sheet-music-overlay,
+    .keyboard-container {
+        min-width: 900px; /* Larghezza virtuale dello stage su mobile */
+    }
+
+    /* 5. Modali ottimizzati per touch */
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+        padding: 15px;
+    }
+
+    .sampler-grid-controls, 
+    .modal-content > div {
+        flex-direction: column;
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    /* Il canvas della Waveform del microfono deve adattarsi senza uscire fuori */
+    #samplerWaveformCanvas {
+        width: 100% !important;
+        height: 80px !important;
     }
 }

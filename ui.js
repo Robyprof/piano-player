@@ -1,3 +1,4 @@
+// START OF FILE ui.js
 // [HOOK: UI_GLOBALS]
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
@@ -207,7 +208,7 @@ window.renderSynthesia = function(now, elapsed) {
                 const map = canvasMap[m];
                 if (map && !map.isBlack) {
                     const x = map.xPct * synthCanvas.width;
-                    synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); stroke();
+                    synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); synthCtx.stroke();
                 }
             }
         }

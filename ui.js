@@ -1,4 +1,5 @@
 // START OF FILE ui.js
+
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
 const lookaheadSec = 4.0; 
@@ -11,6 +12,9 @@ window.midiToDiatonicStep = function(midi) {
     return octave * 7 + cMajOffsets[noteClass]; 
 };
 
+// ==========================================
+// 1. GENERAZIONE TASTIERE (PRINCIPALE E SAMPLER)
+// ==========================================
 window.buildMainKeyboard = function() {
     const keyboard = document.getElementById('keyboard');
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
@@ -33,6 +37,110 @@ window.buildMainKeyboard = function() {
     }
 };
 
+window.renderSamplerKeyboard = function() {
+    const kb = document.getElementById('samplerKeyboardGen');
+    if (!kb) return;
+    kb.innerHTML = '';
+    
+    const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
+    let totalWhiteKeys = 0; const whiteKeyIndices = {};
+    for (let m = window.startMidi; m <= window.endMidi; m++) if (!notesMap[m % 12].isBlack) whiteKeyIndices[m] = totalWhiteKeys++;
+
+    kb.innerHTML = `<div class="white-keys-container" id="samplerWhiteKeys"></div><div class="black-keys-container" id="blackKeysSampler" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>`;
+
+    for (let m = window.startMidi; m <= window.endMidi; m++) {
+        const isBlack = notesMap[m % 12].isBlack;
+        const isActive30 = window.activeMidi30.includes(m);
+        const noteName = isActive30 ? window.noteNames30[window.activeMidi30.indexOf(m)] : '';
+
+        let keyDiv = document.createElement('div'); keyDiv.id = `s-key-${m}`;
+        
+        if (!isBlack) {
+            keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
+            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
+            document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
+        } else {
+            keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
+            keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
+            keyDiv.style.pointerEvents = 'auto'; 
+            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
+            document.getElementById('blackKeysSampler').appendChild(keyDiv);
+        }
+
+        if (isActive30) {
+            keyDiv.onmousedown = () => window.selectSamplerNote(m, noteName);
+            keyDiv.ontouchstart = (e) => { e.preventDefault(); window.selectSamplerNote(m, noteName); };
+        }
+    }
+};
+
+// ==========================================
+// 2. MODALE SAMPLER (CAMPIONATORE)
+// ==========================================
+window.openSamplerModal = function() {
+    document.getElementById('samplerModal').style.display = 'flex';
+    window.renderSamplerKeyboard(); 
+    window.updateSamplerProgress();
+    document.getElementById('samplerActionPanel').style.display = 'none';
+    if (window.populateMicDropdown) window.populateMicDropdown();
+};
+
+window.closeSamplerModal = function() { 
+    document.getElementById('samplerModal').style.display = 'none'; 
+    if (typeof isMicRecording !== 'undefined' && isMicRecording && window.toggleRecording) window.toggleRecording();
+};
+
+window.selectSamplerNote = function(midi, name) {
+    if (typeof currentSelectedSamplerNote !== 'undefined' && currentSelectedSamplerNote) {
+        const oldKey = document.getElementById(`s-key-${currentSelectedSamplerNote.midi}`);
+        if (oldKey) oldKey.classList.remove('s-selected');
+    }
+    window.currentSelectedSamplerNote = { midi, name }; // Global in audio.js
+    const newKey = document.getElementById(`s-key-${midi}`);
+    if (newKey) newKey.classList.add('s-selected');
+
+    const label = document.getElementById('samplerSelectedNoteLabel');
+    if (label) label.innerText = `Nota selezionata: ${name} 🎹`;
+    
+    document.getElementById('samplerActionPanel').style.display = 'block';
+
+    const btn = document.getElementById('btn-rec-modal');
+    if (btn) {
+        if (typeof isMicRecording !== 'undefined' && isMicRecording && window.toggleRecording) { window.toggleRecording(); }
+        btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra";
+    }
+
+    if (newKey) {
+        newKey.classList.add('s-playing-light');
+        setTimeout(() => { newKey.classList.remove('s-playing-light'); }, 1500);
+    }
+
+    if (window.playRecordedSample) {
+        window.playRecordedSample(name);
+    }
+};
+
+window.updateSamplerProgress = function() {
+    const count = window.customInstrumentBuffers ? Object.keys(window.customInstrumentBuffers).length : 0;
+    const progressEl = document.getElementById('samplerProgressText');
+    if (progressEl) progressEl.innerText = `Campioni registrati: ${count} / 30`;
+
+    for (let m of window.activeMidi30) {
+        const name = window.noteNames30[window.activeMidi30.indexOf(m)];
+        const keyEl = document.getElementById(`s-key-${m}`);
+        if (keyEl) {
+            if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
+                keyEl.classList.add('s-recorded');
+            } else {
+                keyEl.classList.remove('s-recorded');
+            }
+        }
+    }
+};
+
+// ==========================================
+// 3. MOTORE GRAFICO (SYNTHESIA + SPARTITO)
+// ==========================================
 window.initSynthesiaCanvas = function() {
     synthCanvas = document.getElementById('synthesiaCanvas'); if (!synthCanvas) return;
     synthCtx = synthCanvas.getContext('2d');
@@ -48,7 +156,6 @@ window.initSynthesiaCanvas = function() {
     }
 };
 
-// [NUOVO] INIZIALIZZAZIONE SPARTITO
 window.initStaffCanvas = function() {
     staffCanvas = document.getElementById('staffCanvas'); if (!staffCanvas) return;
     staffCtx = staffCanvas.getContext('2d');
@@ -101,7 +208,6 @@ window.renderSynthesia = function(now, elapsed) {
     });
 };
 
-// [NUOVO] MOTORE GRAFICO DELLO SPARTITO
 window.renderScrollingStaff = function(currentBeat) {
     if (!staffCanvas || !staffCtx) return;
     const ctx = staffCtx; const w = staffCanvas.width; const h = staffCanvas.height;
@@ -172,6 +278,9 @@ function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY
     if (is8va || is8vb) { ctx.fillStyle = "#ff5555"; ctx.font = "italic bold 12px sans-serif"; ctx.fillText(is8va ? "8va" : "8vb", x - 10, is8va ? y - 14 : y + 18); }
 }
 
+// ==========================================
+// 4. GESTIONE PLAYBACK E SINCRONIZZAZIONE
+// ==========================================
 window.importSongFromJSON = function(songData) {
     window.stopPlayback(false); 
     const bpm = songData.bpm || 105;
@@ -180,86 +289,4 @@ window.importSongFromJSON = function(songData) {
     currentTrebleNotes = songData.right_hand || songData.melody || [];
     currentBassNotes = songData.left_hand || [];
     
-    if (songData.chords && currentBassNotes.length === 0) {
-        let currBeat = 0;
-        songData.chords.forEach(chord => {
-            chord.notes.forEach(n => currentBassNotes.push({ note: n, beat: currBeat, duration: chord.beats }));
-            currBeat += chord.beats;
-        });
-    }
-
-    playbackTimeline = []; let maxBeat = 0;
-    currentTrebleNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'melody', volume: item.velocity ? item.velocity/127 : 0.8 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
-    currentBassNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'chord', volume: item.velocity ? item.velocity/127 : 0.7 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
-    playbackTimeline.sort((a, b) => a.beat - b.beat);
-    window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
-    totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
-
-    // Aggiorna visivamente lo spartito a bocce ferme
-    window.renderScrollingStaff(0);
-};
-
-window.playComposition = function(userInitiated = true) {
-    if (userInitiated !== false) window.isPlaylistMode = false;
-    if (Object.keys(pianoBuffers).length === 0) return alert("Attendi un istante, strumento in caricamento! 🎹");
-    
-    window.stopPlayback(false); 
-    window.importSongFromJSON(window.loadedSong);
-    
-    const btn = document.getElementById('mainPlayBtn');
-    if (btn) { btn.innerHTML = '⏸️ PAUSA'; btn.classList.add('playing'); }
-
-    playStartTime = audioCtx.currentTime + 0.10; isPlaying = true; lastScheduledBeat = 0; scheduledNotes = []; 
-    schedulerWorker.postMessage('start');
-    requestAnimationFrame(animateProgress);
-};
-
-function animateProgress() {
-    if (!isPlaying || !audioCtx) return;
-    const now = audioCtx.currentTime; const elapsed = now - playStartTime;
-    window.renderSynthesia(now, elapsed);
-
-    // [NUOVO] AGGIORNAMENTO SCROLLING SPARTITO
-    const bpm = parseFloat(document.getElementById('bpmSlider').value);
-    window.renderScrollingStaff(Math.max(0, (elapsed - 0.08) / (60 / bpm)));
-
-    if (elapsed >= totalDurationSec) { 
-        window.stopPlayback(false); 
-        if (window.isPlaylistMode && window.playNextInPlaylist) {
-            setTimeout(() => window.playNextInPlaylist(), 1000);
-        }
-        return; 
-    }
-    document.getElementById('progressBar').style.width = `${(elapsed / totalDurationSec) * 100}%`;
-    
-    const activeNotes = scheduledNotes.filter(n => now >= n.start && now < n.end);
-    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => {
-        if(!k.classList.contains('manual-active')) {
-            const midi = parseInt(k.dataset.midi);
-            const activeNote = activeNotes.find(n => n.midi === midi);
-            k.classList.remove('active-chord', 'active-melody');
-            if (activeNote) k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
-        }
-    });
-    progressAnimationId = requestAnimationFrame(animateProgress);
-}
-
-window.stopPlayback = function(userInitiated = true) {
-    if (userInitiated !== false) window.isPlaylistMode = false;
-    
-    const btn = document.getElementById('mainPlayBtn');
-    if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
-
-    activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
-    activeNodes = []; scheduledNotes = []; isPlaying = false; 
-    if (schedulerWorker) schedulerWorker.postMessage('stop');
-    cancelAnimationFrame(progressAnimationId);
-    document.getElementById('progressBar').style.width = '0%';
-    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
-    
-    // Ripristina grafiche a zero
-    window.renderSynthesia(0, 0);
-    window.renderScrollingStaff(0);
-};
-
-window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; };
+  

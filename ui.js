@@ -31,7 +31,7 @@ window.buildMainKeyboard = function() {
             if (!isBlack) { keyDiv.className = 'key-white'; document.getElementById('whiteKeys').appendChild(keyDiv); } 
             else { keyDiv.className = 'key-black'; keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)'; keyDiv.style.pointerEvents = 'auto'; document.getElementById('blackKeys').appendChild(keyDiv); }
 
-            const pressKey = async (e) => { e.preventDefault(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); keyDiv.classList.add('active-key', 'manual-active'); window.playSampledNote(m, audioCtx ? audioCtx.currentTime : 0, 1.5, 1.2, 'manual'); };
+            const pressKey = async (e) => { e.preventDefault(); if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); keyDiv.classList.add('active-key', 'manual-active'); window.playSampledNote(m, typeof audioCtx !== 'undefined' && audioCtx ? audioCtx.currentTime : 0, 1.5, 1.2, 'manual'); };
             const releaseKey = (e) => { e.preventDefault(); keyDiv.classList.remove('active-key', 'manual-active'); };
             keyDiv.addEventListener('mousedown', pressKey); keyDiv.addEventListener('touchstart', pressKey);
             keyDiv.addEventListener('mouseup', releaseKey); keyDiv.addEventListener('mouseleave', releaseKey); keyDiv.addEventListener('touchend', releaseKey);
@@ -40,7 +40,7 @@ window.buildMainKeyboard = function() {
 };
 
 // ==========================================
-// 2. LOGICA ORIGINALE DEL CAMPIONATORE
+// 2. LOGICA ORIGINALE DEL CAMPIONATORE (COLORI CORRETTI)
 // ==========================================
 window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
@@ -64,26 +64,23 @@ window.renderSamplerKeyboard = function() {
         
         if (!isBlack) {
             keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            // FORZATURA COLORE STANDARD BIANCO
-            keyDiv.style.background = "#ffffff";
-            if (!isActive30) {
-                keyDiv.style.opacity = "0.3"; 
-                keyDiv.style.pointerEvents = "none";
-            }
+            // COLORE STANDARD TASTI BIANCHI (Nessuna trasparenza)
+            keyDiv.style.background = isActive30 ? "#ffffff" : "#d1d5db";
+            keyDiv.style.opacity = "1"; 
+            keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
 
             if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000;">${noteName}</span>`;
             document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
-            // FORZATURA COLORE STANDARD NERO
-            keyDiv.style.background = "#111111";
-            if (!isActive30) {
-                keyDiv.style.opacity = "0.3";
-                keyDiv.style.pointerEvents = "none";
-            }
+            // COLORE STANDARD TASTI NERI (Nessuna trasparenza)
+            keyDiv.style.background = isActive30 ? "#111111" : "#374151";
+            keyDiv.style.opacity = "1"; 
+            keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
 
-            keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
-            keyDiv.style.pointerEvents = isActive30 ? 'auto' : 'none'; 
+            keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; 
+            keyDiv.style.transform = 'translateX(-50%)';
+            
             if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 9px; font-weight: bold; color: #fff;">${noteName}</span>`;
             document.getElementById('blackKeysSampler').appendChild(keyDiv);
         }
@@ -136,7 +133,7 @@ window.selectSamplerNote = function(midi, name) {
         btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
     }
 
-    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato (Logica Originale)
+    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato
     const playbackRow = document.getElementById('samplerPlaybackRow');
     const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
     if (playbackRow && playbackLabel) {
@@ -153,7 +150,8 @@ window.selectSamplerNote = function(midi, name) {
         newKey.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #bd93f9";
         setTimeout(() => {
             newKey.style.boxShadow = "";
-            newKey.style.background = ""; // Ripristina colore calcolato da CSS/update
+            newKey.style.background = ""; // Ripristina colore in base a updateSamplerProgress
+            window.updateSamplerProgress(); // Forza l'aggiornamento colore per sicurezza
         }, 1500);
     }
 
@@ -197,14 +195,18 @@ window.updateSamplerProgress = function() {
         }
     }
 
+    // Ricolora le note a seconda che siano registrate o no
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
+        const isBlack = [1,3,6,8,10].includes(m % 12);
+        
         if (keyEl) {
             if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
-                keyEl.style.background = "#50fa7b"; // Colore originale verde registrato
+                keyEl.style.background = "#50fa7b"; // Verde brillante per campioni salvati
             } else {
-                keyEl.style.background = "";
+                // Ritorna al colore standard se non registrato
+                keyEl.style.background = isBlack ? "#111111" : "#ffffff";
             }
         }
     }
@@ -383,7 +385,7 @@ window.importSongFromJSON = function(songData) {
 window.playComposition = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
     
-    // Controlla che i buffer piano siano caricati o se è in esecuzione il campionatore
+    // Controlla che i buffer piano siano caricati
     if (typeof pianoBuffers !== 'undefined' && Object.keys(pianoBuffers).length === 0) {
         return alert("Attendi un istante, strumento in caricamento! 🎹");
     }

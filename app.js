@@ -6,44 +6,60 @@ window.startMidi = 21;
 window.endMidi = 108;
 window.noteNames30 = ["A0","C1","Ds1","Fs1","A1","C2","Ds2","Fs2","A2","C3","Ds3","Fs3","A3","C4","Ds4","Fs4","A4","C5","Ds5","Fs5","A5","C6","Ds6","Fs6","A6","C7","Ds7","Fs7","A7","C8"];
 window.activeMidi30 = [21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93, 96, 99, 102, 105, 108];
+window.isPlaylistMode = true; // Auto Playlist abilitata di default
+window.playlistAuthor = null;
+window.playlistSongKeys = [];
+window.playlistIndex = 0;
 
-// [HOOK: TAB_LOGIC]
-window.switchTab = function(tabId, btn) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    btn.classList.add('active');
-
-    if (tabId === 'tab-play') {
-        window.dispatchEvent(new Event('resize')); // Fix Canvas Rendering
-    }
-};
-
-// [HOOK: INIT]
-window.addEventListener('DOMContentLoaded', () => {
+// [HOOK: INIT - AVVIO AUTOMATICO DELL'INTERO AMBIENTE]
+window.addEventListener('DOMContentLoaded', async () => {
+    // 1. Inizializza i Layer Visivi in Backgrond
     if (window.initSchedulerWorker) window.initSchedulerWorker();
     if (window.buildMainKeyboard) window.buildMainKeyboard();
     if (window.initSynthesiaCanvas) window.initSynthesiaCanvas();
     if (window.initStaffCanvas) window.initStaffCanvas();
+    
+    // 2. Avvia SILENZIOSAMENTE il download dello strumento (stato suspended)
     if (window.loadAudioSourcesFromFirebase) window.loadAudioSourcesFromFirebase();
-    if (window.loadSongsListFromFirebase) window.loadSongsListFromFirebase();
+    if (window.initAudioEngine) window.initAudioEngine();
 
+    // 3. Pesca una Raccolta Casuale dal Cloud e la Pre-Carica
+    if (window.loadSongsListFromFirebase) {
+        await window.loadSongsListFromFirebase();
+        if (window.firebaseDatabase) {
+            const authors = Object.keys(window.firebaseDatabase).filter(k => k !== '_authorNotes' && typeof window.firebaseDatabase[k] === 'object');
+            if (authors.length > 0) {
+                const randomAuthor = authors[Math.floor(Math.random() * authors.length)];
+                document.getElementById('authorSelect').value = randomAuthor;
+                window.onAuthorSelected(randomAuthor, true);
+
+                window.playlistAuthor = randomAuthor;
+                window.playlistSongKeys = Object.keys(window.firebaseDatabase[randomAuthor]).filter(k => k !== '_authorNotes');
+                window.playlistIndex = 0;
+
+                // Pre-carica il JSON del primo brano senza attivare l'audio (permette il click del neofita)
+                if (window.playlistSongKeys.length > 0) {
+                    await window.preloadFirstSong(randomAuthor, window.playlistSongKeys[0]);
+                }
+            }
+        }
+    }
+
+    // Loader File Locale
     const jsonLoader = document.getElementById('jsonLoader');
     if (jsonLoader) {
         jsonLoader.addEventListener('change', e => {
             const file = e.target.files[0]; if (!file) return;
-            
-            // Popola i campi input del salvataggio Firebase automaticamente
             let cleanName = file.name.replace('.json','').replace(/[^a-zA-Z0-9_]/g, "_");
             document.getElementById('saveSongInput').value = cleanName;
-
             const reader = new FileReader();
             reader.onload = evt => {
                 try { 
-                    window.isPlaylistMode = false; // Ferma la riproduzione automatica in caso di upload manuale
+                    window.isPlaylistMode = false;
                     window.loadedSong = JSON.parse(evt.target.result);
                     window.importSongFromJSON(window.loadedSong);
-                    alert("File Locale Caricato! Vai su 'Suona Spartito' per vederlo, o archivialo nel Cloud tramite il riquadro sottostante.");
+                    document.getElementById('nowPlayingTitle').innerText = window.loadedSong.name || cleanName;
+                    document.getElementById('nowPlayingAuthor').innerText = "BRANO LOCALE";
                 } catch (err) { alert("Errore nel file: " + err.message); }
             }; 
             reader.readAsText(file);
@@ -51,18 +67,46 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// [HOOK: PLAYLIST_LOGIC]
-window.isPlaylistMode = false;
-window.playlistAuthor = null;
-window.playlistSongKeys = [];
-window.playlistIndex = 0;
+// [HOOK: MAIN_PLAY_TOGGLE - IL COMANDO CENTRALE]
+window.toggleMainPlay = async function() {
+    // Risveglia il motore audio dal blocco policy dei browser (gesto dell'utente)
+    if (!audioCtx) await window.initAudioEngine();
+    if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
 
+    if (!window.loadedSong) {
+        alert("Attendi un istante il caricamento del brano dal Cloud...");
+        return;
+    }
+
+    const btn = document.getElementById('mainPlayBtn');
+    if (isPlaying) {
+        window.stopPlayback(true);
+    } else {
+        window.playComposition(true);
+    }
+};
+
+window.preloadFirstSong = async function(authorKey, songKey) {
+    document.getElementById('songSelect').value = songKey;
+    try {
+        const response = await fetch(`${window.FIREBASE_DB_URL}/scores/${authorKey}/${songKey}.json`);
+        const songData = await response.json();
+        if (songData) {
+            window.loadedSong = songData;
+            window.importSongFromJSON(songData);
+            document.getElementById('nowPlayingTitle').innerText = songData.name || songKey.replace(/_/g, " ");
+            document.getElementById('nowPlayingAuthor').innerText = authorKey.replace(/_/g, " ").toUpperCase();
+            
+            const notesArea = document.getElementById('songNotesArea');
+            if (notesArea) notesArea.value = songData.notes || "";
+        }
+    } catch(e) { console.error("Errore pre-load:", e); }
+};
+
+// [HOOK: PLAYLIST_LOGIC]
 window.startAuthorPlaylist = async function() {
-    if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    
     const authorKey = document.getElementById('authorSelect').value;
     if (!authorKey || !window.firebaseDatabase[authorKey]) return alert("Seleziona una raccolta!");
-    
     const songKeys = Object.keys(window.firebaseDatabase[authorKey]).filter(k => k !== '_authorNotes');
     if (songKeys.length === 0) return alert("La raccolta è vuota!");
 
@@ -71,16 +115,11 @@ window.startAuthorPlaylist = async function() {
     window.playlistSongKeys = songKeys;
     window.playlistIndex = 0;
     
-    // Passa alla tab Play (indice 2)
-    const tabs = document.querySelectorAll('.tab-btn');
-    if (tabs.length > 2) window.switchTab('tab-play', tabs[2]);
-
     await window.loadAndPlayPlaylistSong();
 };
 
 window.loadAndPlayPlaylistSong = async function() {
     if (!window.isPlaylistMode) return;
-    
     const authorKey = window.playlistAuthor;
     const songKey = window.playlistSongKeys[window.playlistIndex];
     
@@ -94,29 +133,46 @@ window.loadAndPlayPlaylistSong = async function() {
         if (songData) {
             window.loadedSong = songData;
             window.importSongFromJSON(songData);
+            document.getElementById('nowPlayingTitle').innerText = songData.name || songKey.replace(/_/g, " ");
+            document.getElementById('nowPlayingAuthor').innerText = authorKey.replace(/_/g, " ").toUpperCase();
             
-            const songPanel = document.getElementById('songActionsPanel');
             const notesArea = document.getElementById('songNotesArea');
-            if (songPanel) songPanel.style.display = 'block';
             if (notesArea) notesArea.value = songData.notes || "";
 
             setTimeout(() => { 
                 if (window.isPlaylistMode && window.playComposition) window.playComposition(false); 
-            }, 500);
+            }, 300);
         } else {
             window.playNextInPlaylist();
         }
-    } catch(e) { 
-        console.error("Errore nel caricamento del brano della playlist:", e); 
-        window.playNextInPlaylist(); 
-    }
+    } catch(e) { window.playNextInPlaylist(); }
 };
 
 window.playNextInPlaylist = function() {
     if (!window.isPlaylistMode) return;
     window.playlistIndex++;
-    if (window.playlistIndex >= window.playlistSongKeys.length) {
-        window.playlistIndex = 0; // Riproduzione in Loop Continuo
-    }
+    if (window.playlistIndex >= window.playlistSongKeys.length) window.playlistIndex = 0;
     window.loadAndPlayPlaylistSong();
+};
+
+window.playPrevInPlaylist = function() {
+    if (!window.isPlaylistMode) return;
+    window.playlistIndex--;
+    if (window.playlistIndex < 0) window.playlistIndex = window.playlistSongKeys.length - 1;
+    window.loadAndPlayPlaylistSong();
+};
+
+// Viste Visive Toggle
+window.toggleSheetView = function() {
+    const sheet = document.getElementById('sheetStage');
+    if (sheet.style.display === 'none') {
+        sheet.style.display = 'block';
+        window.dispatchEvent(new Event('resize'));
+    } else {
+        sheet.style.display = 'none';
+    }
+};
+
+window.openCloudManager = function() {
+    document.getElementById('cloudModal').style.display = 'flex';
 };

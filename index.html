@@ -3,200 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piano Player (Pro Edition)</title>
+    <title>Piano Player (Pro Studio Edition)</title>
     <!-- [HOOK: EXTERNAL_SCRIPTS] -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=1783763368">
+    <link rel="stylesheet" href="style.css?v=2024">
 </head>
 <body>
-    <div class="container">
-        <!-- HEADER PROFESSIONALE -->
-        <header class="app-header">
-            <div class="header-logo">
-                <span class="logo-icon">🎹</span>
-                <div>
-                    <h1>PIANO PLAYER</h1>
-                    <p class="subtitle">Virtual Instrument Studio & Cloud Library</p>
-                </div>
-            </div>
-            <!-- SELETTORE TAB STILE RACK -->
-            <div class="tabs-container">
-                <button class="tab-btn active" onclick="window.switchTab('tab-audio', this)">🎛️ Sorgente Audio</button>
-                <button class="tab-btn" onclick="window.switchTab('tab-score', this)">📂 Archivio & Cloud</button>
-                <button class="tab-btn" onclick="window.switchTab('tab-play', this)">🎵 Playback Console</button>
-            </div>
-        </header>
-
-        <!-- CONTENUTO DELLE SCHEDE -->
-        <main class="app-main">
+    <div class="app-layout">
+        
+        <!-- SIDEBAR (Strumenti e Navigazione) -->
+        <aside class="sidebar">
+            <div class="logo-area">🎹 Piano Pro</div>
             
-            <!-- [HOOK: TAB_AUDIO] -->
-            <div id="tab-audio" class="tab-content active">
-                <div class="panel audio-panel">
-                    <div class="panel-header">
-                        <h3 class="panel-title">Sorgente Audio (Instrument Engine)</h3>
-                        <span id="audioStatus" class="status-badge status-disconnected">Sorgente non caricata ❌</span>
-                    </div>
-                    
-                    <p class="panel-description">Configura lo strumento di riproduzione caricando i campioni audio predefiniti o impostando un server remoto personalizzato.</p>
-                    
-                    <div class="audio-controls-row">
-                        <div class="control-group">
-                            <label class="input-label">Seleziona Preset Strumento</label>
-                            <select id="audioSourceSelect" class="db-select">
-                                <option value="https://tonejs.github.io/audio/salamander/">Yamaha C5 (Default)</option>
-                            </select>
-                        </div>
-                        <div class="button-group">
-                            <button class="btn btn-primary" onclick="window.initAudioEngine()">Inizializza Sintetizzatore 🎹</button>
-                            <button class="btn btn-secondary" onclick="window.testAudioNote()">Test Nota (Do4)</button>
-                        </div>
-                    </div>
-
-                    <div class="audio-controls-row custom-source-row">
-                        <div class="control-group flex-2">
-                            <label class="input-label">Nome Nuovo Strumento</label>
-                            <input type="text" id="newAudioSourceName" class="audio-input" placeholder="Es. Steinway Model D...">
-                        </div>
-                        <div class="control-group flex-3">
-                            <label class="input-label">URL Cartella Sorgente (Hosting Web/GitHub)</label>
-                            <input type="text" id="newAudioSourceUrl" class="audio-input" placeholder="https://mio-sito.it/audio/strumento/">
-                        </div>
-                        <div class="button-group align-end">
-                            <button class="btn btn-accent-cloud" onclick="window.saveAudioSourceToFirebase()">Salva su Cloud ☁️</button>
-                            <button class="btn btn-accent-sampler" onclick="window.openSamplerModal()">Crea Campionatore 🎤</button>
-                        </div>
-                    </div>
-                </div>
+            <div class="sidebar-section">
+                <h3>🎛️ Sorgente Audio</h3>
+                <select id="audioSourceSelect" class="db-select" onchange="window.initAudioEngine()">
+                    <option value="https://tonejs.github.io/audio/salamander/">Yamaha C5 (Default)</option>
+                </select>
+                <div class="audio-status-wrap">Stato: <span id="audioStatus">Avvio Engine...</span></div>
+                <button class="btn btn-secondary full-width" onclick="window.openSamplerModal()">🎤 Crea Strumento</button>
             </div>
 
-            <!-- [HOOK: TAB_SCORE] -->
-            <div id="tab-score" class="tab-content">
-                <div class="panel">
-                    <!-- CARICAMENTO LOCALE -->
-                    <div class="loader-row">
-                        <div class="row-info">
-                            <span class="row-title">📂 Caricamento File Locale</span>
-                            <span class="row-subtitle">Importa un file di spartito in formato JSON per l'esecuzione immediata.</span>
-                        </div>
-                        <div class="row-actions">
-                            <label class="file-input-btn" for="jsonLoader">Sfoglia PC 📂</label>
-                            <input type="file" id="jsonLoader" accept=".json">
-                        </div>
-                    </div>
+            <div class="sidebar-section">
+                <h3>🌐 Esplora Raccolte Cloud</h3>
+                <select id="authorSelect" class="db-select" onchange="window.onAuthorSelected(this.value, false)"></select>
+                <select id="songSelect" class="db-select" onchange="window.onSongSelected(this.value)"></select>
+                <button class="btn btn-primary full-width" style="margin-top:10px;" onclick="window.openCloudManager()">☁️ Gestione Avanzata Cloud</button>
+            </div>
 
-                    <!-- SALVATAGGIO IN CLOUD -->
-                    <div class="loader-row cloud-save-row">
-                        <div class="row-info">
-                            <span class="row-title highlight-gold">☁️ Archiviazione Cloud Privata</span>
-                            <span class="row-subtitle">Organizza e salva lo spartito attualmente caricato nel database cloud.</span>
-                        </div>
-                        <div class="row-actions grid-actions">
-                            <input type="text" id="saveAuthorInput" class="url-input" placeholder="Raccolta / Autore..." list="existingAuthorsList">
-                            <datalist id="existingAuthorsList"></datalist>
-                            
-                            <input type="text" id="saveSongInput" class="url-input" placeholder="Titolo Brano...">
-                            <button class="btn btn-gold" onclick="window.saveSongToFirebase()">Archivia su DB ☁️</button>
-                        </div>
-                    </div>
+            <div class="sidebar-section">
+                <h3>🎼 Controlli Visivi</h3>
+                <label class="checkbox-container"><input type="checkbox" id="rhythmToggle" checked> <span class="checkbox-custom"></span> Accompagnamento (Sinistra)</label>
+                <label class="checkbox-container"><input type="checkbox" id="melodyToggle" checked> <span class="checkbox-custom"></span> Melodia (Destra)</label>
+                <button class="btn btn-secondary full-width" style="margin-top:10px;" onclick="window.toggleSheetView()">Visualizza Spartito 🎼</button>
+            </div>
 
-                    <!-- ESPLORA CLOUD -->
-                    <div class="loader-row explorer-row">
-                        <div class="row-info">
-                            <span class="row-title highlight-green">🌐 Database Esplorazione Cloud</span>
-                            <span class="row-subtitle">Accedi alle raccolte salvate, avvia playlist continue ed inserisci annotazioni di spartito.</span>
-                        </div>
-                        <div class="row-actions flex-column">
-                            <div class="db-select-group">
-                                <select id="authorSelect" class="db-select" onchange="window.onAuthorSelected(this.value)">
-                                    <option value="">-- Seleziona Raccolta --</option>
-                                </select>
-                                <select id="songSelect" class="db-select" disabled onchange="window.onSongSelected(this.value)">
-                                    <option value="">-- Seleziona Brano --</option>
-                                </select>
-                            </div>
+            <div class="sidebar-section">
+                <h3>📂 Importazione Locale</h3>
+                <label class="btn btn-outline full-width" for="jsonLoader" style="text-align: center; display: block;">Carica File JSON</label>
+                <input type="file" id="jsonLoader" accept=".json" style="display:none;">
+            </div>
+        </aside>
 
-                            <!-- Pannello Azioni RACCOLTA -->
-                            <div id="authorActionsPanel" class="sub-action-panel border-purple">
-                                <label class="input-label label-purple">Appunti e Note della Raccolta</label>
-                                <textarea id="authorNotesArea" placeholder="Inserisci qui annotazioni storiche, diteggiature generali o note per l'intera raccolta..."></textarea>
-                                
-                                <div class="sub-actions-footer">
-                                    <button class="btn btn-purple" onclick="window.saveAuthorNotes()">💾 Salva Note Raccolta</button>
-                                    <button class="btn btn-playlist" onclick="window.startAuthorPlaylist()">▶️ Esegui Raccolta in Loop</button>
-                                    <div class="spacer"></div>
-                                    <button class="btn btn-danger" onclick="window.deleteCurrentAuthor()">💣 Elimina Raccolta</button>
-                                </div>
-                            </div>
-
-                            <!-- Pannello Azioni BRANO -->
-                            <div id="songActionsPanel" class="sub-action-panel border-green">
-                                <label class="input-label label-green">Testo e Appunti Specifici del Brano</label>
-                                <textarea id="songNotesArea" placeholder="Inserisci qui testi, accordi consigliati o istruzioni per l'esecuzione di questo brano..."></textarea>
-                                
-                                <div class="sub-actions-footer">
-                                    <button class="btn btn-green" onclick="window.saveSongNotes()">💾 Salva Note Brano</button>
-                                    <div class="spacer"></div>
-                                    <button class="btn btn-danger-soft" onclick="window.deleteCurrentSong()">🗑️ Elimina Brano</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <!-- MAIN WORKSPACE -->
+        <main class="main-workspace">
+            <!-- HEADER DI RIPRODUZIONE -->
+            <header class="top-bar">
+                <div class="track-info">
+                    <h2 id="nowPlayingTitle">Inizializzazione in corso...</h2>
+                    <h3 id="nowPlayingAuthor">Preparazione ambiente</h3>
                 </div>
                 
-                <div class="title-wrapper">
-                    <h2 id="stdName" class="active-song-title">Nessun brano caricato</h2>
-                    <p id="stdSub" class="active-song-subtitle">Seleziona una sorgente locale o un archivio cloud.</p>
+                <div class="playback-controls">
+                    <button class="btn-icon" onclick="window.playPrevInPlaylist()">⏮️</button>
+                    <button class="main-play-btn" id="mainPlayBtn" onclick="window.toggleMainPlay()">▶️ PLAY</button>
+                    <button class="btn-icon" onclick="window.playNextInPlaylist()">⏭️</button>
                 </div>
-            </div>
+                
+                <div class="tempo-control">
+                    <label>Tempo: <span id="bpmVal">105</span> BPM</label>
+                    <input type="range" id="bpmSlider" min="50" max="240" value="105" oninput="window.updateBPM(this.value)">
+                </div>
+            </header>
 
-            <!-- [HOOK: TAB_PLAY] -->
-            <div id="tab-play" class="tab-content">
-                <!-- SPARTITO -->
-                <div class="sheet-music-wrapper" id="spartitoBox">
+            <!-- STAGE VISIVO PRINCIPALE (Zero Scroll) -->
+            <div class="stage-container">
+                <div id="progressContainer" class="progress-bar-wrap"><div id="progressBar"></div></div>
+
+                <!-- Livello Synthesia -->
+                <canvas id="synthesiaCanvas" class="synthesia-canvas"></canvas>
+
+                <!-- Livello Spartito (Nascosto di default) -->
+                <div class="sheet-music-overlay" id="sheetStage" style="display:none;">
                     <canvas id="staffCanvas"></canvas>
                 </div>
 
-                <!-- TASTIERA E VISUALIZZATORE -->
-                <div class="keyboard-wrapper">
-                    <div class="synthesia-container">
-                        <canvas id="synthesiaCanvas" class="synthesia-canvas"></canvas>
-                        <div class="keyboard" id="keyboard"></div>
-                    </div>
-                </div>
-
-                <!-- DASHBOARD DI PLAYBACK -->
-                <div class="sequencer-panel">
-                    <div class="progress-container" id="progressContainer">
-                        <div class="progress-bar" id="progressBar"></div>
-                    </div>
-                    <div class="dashboard-controls">
-                        <div class="params-group">
-                            <div class="param-item slider-item">
-                                <label class="param-label">Tempo: <span id="bpmVal" class="numerical-val">105</span> BPM</label>
-                                <input type="range" id="bpmSlider" min="50" max="240" value="105" oninput="window.updateBPM(this.value)">
-                            </div>
-                            <div class="param-item checkbox-item">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="rhythmToggle" checked>
-                                    <span class="checkbox-custom"></span>
-                                    <span id="rhythmText" class="checkbox-label">Accompagnamento (Sinistra) 🎹</span>
-                                </label>
-                            </div>
-                            <div class="param-item checkbox-item">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="melodyToggle" checked>
-                                    <span class="checkbox-custom"></span>
-                                    <span id="melodyText" class="checkbox-label">Melodia (Destra) 🎹</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="btn-action-group">
-                            <button class="play-btn" onclick="window.playComposition(true)">▶️ Play</button>
-                            <button class="stop-btn" onclick="window.stopPlayback(true)">⏹️ Stop</button>
-                        </div>
-                    </div>
+                <!-- Tastiera Pianoforte (Fissa in basso) -->
+                <div class="keyboard-container">
+                    <div class="keyboard" id="keyboard"></div>
                 </div>
             </div>
         </main>
@@ -206,69 +91,68 @@
     <div class="modal-overlay" id="samplerModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div>
-                    <h2>Registratore Strumento (Campionatore)</h2>
-                    <p class="modal-subtitle">Seleziona e registra individualmente le 30 note evidenziate per creare lo strumento.</p>
-                </div>
+                <div><h2>🎤 Registratore Strumento</h2></div>
                 <div class="modal-header-actions">
-                    <span id="samplerProgressText" class="progress-indicator-text">Campioni registrati: 0 / 30</span>
-                    <button class="btn btn-green-solid" onclick="window.exportInstrumentZip()">Esporta Strumento (ZIP) 📦</button>
-                    <button class="btn btn-close" onclick="window.closeSamplerModal()">Chiudi ✕</button>
+                    <span id="samplerProgressText" class="progress-indicator-text">Campioni: 0 / 30</span>
+                    <button class="btn btn-primary" onclick="window.exportInstrumentZip()">Esporta ZIP</button>
+                    <button class="btn btn-secondary" onclick="window.closeSamplerModal()">Chiudi</button>
                 </div>
             </div>
-            
-            <div class="sampler-keyboard-wrap">
-                <div class="sampler-kb-inner" id="samplerKeyboardGen"></div>
-            </div>
-
-            <div class="sampler-action-panel" id="samplerActionPanel">
-                <h3 id="samplerSelectedNoteLabel" class="selected-note-title">Seleziona una nota dalla tastiera sopra</h3>
-                
+            <div class="sampler-keyboard-wrap"><div class="sampler-kb-inner keyboard sampler-mode" id="samplerKeyboardGen"></div></div>
+            <div class="sampler-action-panel" id="samplerActionPanel" style="display:none;">
+                <h3 id="samplerSelectedNoteLabel" class="selected-note-title">Seleziona una nota</h3>
                 <div class="sampler-grid-controls">
-                    <!-- Selettore Microfono -->
-                    <div class="sampler-control-item">
-                        <label for="samplerMicSelect" class="input-label">Ingresso Audio</label>
-                        <select id="samplerMicSelect" class="db-select"></select>
-                    </div>
-                    
-                    <!-- Durata -->
-                    <div class="sampler-control-item">
-                        <label class="input-label">Durata Campionamento: <span id="samplerDurationVal" class="highlight-val">25</span> s</label>
-                        <input type="range" id="samplerDurationSlider" min="1" max="25" value="25" oninput="document.getElementById('samplerDurationVal').innerText = this.value">
-                    </div>
-
-                    <!-- Soglia Trigger -->
-                    <div class="sampler-control-item">
-                        <label class="input-label">Soglia di Attivazione (Trigger): <span id="samplerThresholdVal" class="highlight-val">0.05</span></label>
-                        <input type="range" id="samplerThresholdSlider" min="0.01" max="0.25" step="0.01" value="0.05" oninput="document.getElementById('samplerThresholdVal').innerText = this.value">
-                    </div>
-                    
-                    <!-- Timer -->
-                    <div class="sampler-timer-wrap">
-                        <span id="samplerTimer" class="sampler-timer">⏱️ 0.0s</span>
-                    </div>
+                    <div class="sampler-control-item"><label>Ingresso</label><select id="samplerMicSelect" class="db-select"></select></div>
+                    <div class="sampler-control-item"><label>Durata (s)</label><input type="range" id="samplerDurationSlider" min="1" max="25" value="25"></div>
+                    <div class="sampler-control-item"><label>Soglia Trigger</label><input type="range" id="samplerThresholdSlider" min="0.01" max="0.25" step="0.01" value="0.05"></div>
+                    <div class="sampler-timer-wrap"><span id="samplerTimer" class="sampler-timer">⏱️ 0.0s</span></div>
                 </div>
-                
-                <!-- Display Oscilloscopio / Waveform -->
-                <div class="oscilloscope-container">
-                    <canvas id="samplerWaveformCanvas" width="800" height="120"></canvas>
-                </div>
-                
-                <!-- Feedback Riproduzione -->
-                <div id="samplerPlaybackRow" class="sampler-playback-row">
-                    <span id="samplerPlaybackNoteLabel" class="playback-note-text">Nota selezionata: --</span>
-                    <button id="btn-play-recorded" class="btn btn-play-sample" onclick="window.playAndLightSelectedSample()">▶️ Ascolta Registrazione 🔊</button>
-                </div>
-
-                <div class="sampler-trigger-buttons">
-                    <button class="btn-rec" id="btn-rec-modal" onclick="window.toggleRecording()">🎤 Registra Microfono</button>
-                    <button class="btn-upload">📂 Importa Audio Locale <input type="file" accept="audio/*" onchange="window.handleUploadNote(event)"></button>
+                <canvas id="samplerWaveformCanvas" width="800" height="120" style="width:100%; height:110px; background:#050608; margin-bottom:15px; border-radius:6px;"></canvas>
+                <div style="display:flex; justify-content:center; gap:10px;">
+                    <button class="btn-rec" id="btn-rec-modal" onclick="window.toggleRecording()">🎤 Registra</button>
+                    <label class="btn btn-outline" style="cursor:pointer;">📂 Importa Audio <input type="file" accept="audio/*" onchange="window.handleUploadNote(event)" style="display:none;"></label>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- [HOOK: MODULES] -->
+    <!-- [HOOK: MODAL_CLOUD_MANAGER] -->
+    <div class="modal-overlay" id="cloudModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>☁️ Gestione Avanzata Cloud</h2>
+                <button class="btn btn-secondary" onclick="document.getElementById('cloudModal').style.display='none'">Chiudi</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:20px; margin-top:20px;">
+                <div class="panel border-gold">
+                    <h3 style="color:#f59e0b; margin-top:0;">Archivia Brano Corrente</h3>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <input type="text" id="saveAuthorInput" class="db-select" placeholder="Raccolta / Autore..." list="existingAuthorsList">
+                        <datalist id="existingAuthorsList"></datalist>
+                        <input type="text" id="saveSongInput" class="db-select" placeholder="Titolo Brano...">
+                        <button class="btn btn-primary" onclick="window.saveSongToFirebase()">Archivia</button>
+                    </div>
+                </div>
+                <div class="panel border-purple">
+                    <h3 style="color:#c084fc; margin-top:0;">Note Raccolta (Selezionata in Sidebar)</h3>
+                    <textarea id="authorNotesArea" class="cloud-textarea" placeholder="Appunti sull'intera raccolta..."></textarea>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                        <button class="btn btn-outline" style="color:#c084fc; border-color:#c084fc;" onclick="window.saveAuthorNotes()">Salva Note Raccolta</button>
+                        <button class="btn btn-outline" style="color:#ef4444; border-color:#ef4444;" onclick="window.deleteCurrentAuthor()">Elimina Intera Raccolta</button>
+                    </div>
+                </div>
+                <div class="panel border-green">
+                    <h3 style="color:#10b981; margin-top:0;">Note Singolo Brano</h3>
+                    <textarea id="songNotesArea" class="cloud-textarea" placeholder="Testi, accordi, istruzioni..."></textarea>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                        <button class="btn btn-outline" style="color:#10b981; border-color:#10b981;" onclick="window.saveSongNotes()">Salva Note Brano</button>
+                        <button class="btn btn-outline" style="color:#ef4444; border-color:#ef4444;" onclick="window.deleteCurrentSong()">Elimina Brano</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
     <script src="audio.js"></script>
     <script src="firebase.js"></script>

@@ -1,5 +1,4 @@
 // START OF FILE ui.js
-// [HOOK: UI_GLOBALS]
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
 const lookaheadSec = 4.0; 
@@ -12,7 +11,6 @@ window.midiToDiatonicStep = function(midi) {
     return octave * 7 + cMajOffsets[noteClass]; 
 };
 
-// [HOOK: KEYBOARDS_RENDER]
 window.buildMainKeyboard = function() {
     const keyboard = document.getElementById('keyboard');
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
@@ -20,14 +18,14 @@ window.buildMainKeyboard = function() {
     for (let m = window.startMidi; m <= window.endMidi; m++) if (!notesMap[m % 12].isBlack) whiteKeyIndices[m] = totalWhiteKeys++;
 
     if (keyboard) {
-        keyboard.innerHTML = `<div class="white-keys-container" id="whiteKeys"></div><div class="black-keys-container" id="blackKeys" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>`;
+        keyboard.innerHTML = `<div class="white-keys-container" id="whiteKeys"></div><div class="black-keys-container" id="blackKeys"></div>`;
         for (let m = window.startMidi; m <= window.endMidi; m++) {
             const isBlack = notesMap[m % 12].isBlack;
             let keyDiv = document.createElement('div'); keyDiv.dataset.midi = m;
             if (!isBlack) { keyDiv.className = 'key-white'; document.getElementById('whiteKeys').appendChild(keyDiv); } 
             else { keyDiv.className = 'key-black'; keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)'; keyDiv.style.pointerEvents = 'auto'; document.getElementById('blackKeys').appendChild(keyDiv); }
 
-            const pressKey = async (e) => { e.preventDefault(); if (!audioCtx) return; if (audioCtx.state === 'suspended') audioCtx.resume(); keyDiv.classList.add('active-key', 'manual-active'); window.playSampledNote(m, audioCtx.currentTime, 1.5, 1.2, 'manual'); };
+            const pressKey = async (e) => { e.preventDefault(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); keyDiv.classList.add('active-key', 'manual-active'); window.playSampledNote(m, audioCtx ? audioCtx.currentTime : 0, 1.5, 1.2, 'manual'); };
             const releaseKey = (e) => { e.preventDefault(); keyDiv.classList.remove('active-key', 'manual-active'); };
             keyDiv.addEventListener('mousedown', pressKey); keyDiv.addEventListener('touchstart', pressKey);
             keyDiv.addEventListener('mouseup', releaseKey); keyDiv.addEventListener('mouseleave', releaseKey); keyDiv.addEventListener('touchend', releaseKey);
@@ -35,152 +33,11 @@ window.buildMainKeyboard = function() {
     }
 };
 
-window.renderSamplerKeyboard = function() {
-    const kb = document.getElementById('samplerKeyboardGen');
-    kb.innerHTML = '';
-    
-    kb.className = "keyboard sampler-mode"; 
-    
-    const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
-    let totalWhiteKeys = 0; const whiteKeyIndices = {};
-    for (let m = window.startMidi; m <= window.endMidi; m++) if (!notesMap[m % 12].isBlack) whiteKeyIndices[m] = totalWhiteKeys++;
-
-    kb.innerHTML = `<div class="white-keys-container" id="samplerWhiteKeys"></div><div class="black-keys-container" id="blackKeysSampler" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>`;
-
-    for (let m = window.startMidi; m <= window.endMidi; m++) {
-        const isBlack = notesMap[m % 12].isBlack;
-        const isActive30 = window.activeMidi30.includes(m);
-        const noteName = isActive30 ? window.noteNames30[window.activeMidi30.indexOf(m)] : '';
-
-        let keyDiv = document.createElement('div'); keyDiv.id = `s-key-${m}`;
-        
-        if (!isBlack) {
-            keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
-            document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
-        } else {
-            keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
-            keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
-            keyDiv.style.pointerEvents = 'auto'; 
-            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
-            document.getElementById('blackKeysSampler').appendChild(keyDiv);
-        }
-
-        if (isActive30) {
-            keyDiv.onmousedown = () => window.selectSamplerNote(m, noteName);
-            keyDiv.ontouchstart = (e) => { e.preventDefault(); window.selectSamplerNote(m, noteName); };
-        }
-    }
-};
-
-// [HOOK: SAMPLER_MODAL_UI]
-window.openSamplerModal = function() {
-    document.getElementById('samplerModal').style.display = 'flex';
-    window.renderSamplerKeyboard(); window.updateSamplerProgress();
-    document.getElementById('samplerActionPanel').style.display = 'none';
-    if (window.populateMicDropdown) window.populateMicDropdown();
-};
-window.closeSamplerModal = function() { 
-    document.getElementById('samplerModal').style.display = 'none'; 
-    if (isMicRecording && window.toggleRecording) window.toggleRecording();
-};
-
-window.selectSamplerNote = function(midi, name) {
-    if (currentSelectedSamplerNote) {
-        const oldKey = document.getElementById(`s-key-${currentSelectedSamplerNote.midi}`);
-        if (oldKey) oldKey.classList.remove('s-selected');
-    }
-    currentSelectedSamplerNote = { midi, name };
-    const newKey = document.getElementById(`s-key-${midi}`);
-    if (newKey) newKey.classList.add('s-selected');
-
-    document.getElementById('samplerSelectedNoteLabel').innerText = `Registrazione in corso per la Nota: ${name} 🎹`;
-    document.getElementById('samplerActionPanel').style.display = 'block';
-
-    const btn = document.getElementById('btn-rec-modal');
-    if (isMicRecording && window.toggleRecording) { window.toggleRecording(); }
-    btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
-
-    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato
-    const playbackRow = document.getElementById('samplerPlaybackRow');
-    const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
-    if (playbackRow && playbackLabel) {
-        playbackLabel.innerText = `Nota selezionata: ${name} 🎵`;
-        if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
-            playbackRow.style.display = 'flex';
-        } else {
-            playbackRow.style.display = 'none';
-        }
-    }
-
-    // Illumina il tasto quando viene selezionato/riprodotto
-    if (newKey) {
-        newKey.classList.add('s-playing-light');
-        setTimeout(() => {
-            newKey.classList.remove('s-playing-light');
-        }, 1500);
-    }
-
-    if (window.playRecordedSample) {
-        window.playRecordedSample(name);
-    }
-};
-
-window.playAndLightSelectedSample = async function() {
-    if (!currentSelectedSamplerNote) return;
-    const name = currentSelectedSamplerNote.name;
-    const midi = currentSelectedSamplerNote.midi;
-    
-    if (window.playRecordedSample) {
-        window.playRecordedSample(name);
-    }
-    
-    // Feedback luminoso del tasto associato sulla tastiera del campionatore
-    const keyEl = document.getElementById(`s-key-${midi}`);
-    if (keyEl) {
-        keyEl.classList.add('s-playing-light');
-        setTimeout(() => {
-            keyEl.classList.remove('s-playing-light');
-        }, 1500);
-    }
-};
-
-window.updateSamplerProgress = function() {
-    const count = Object.keys(window.customInstrumentBuffers).length;
-    document.getElementById('samplerProgressText').innerText = `Campioni caricati: ${count} / 30`;
-    
-    // Aggiorna lo stato visivo di riproduzione per la nota corrente
-    if (currentSelectedSamplerNote) {
-        const name = currentSelectedSamplerNote.name;
-        const playbackRow = document.getElementById('samplerPlaybackRow');
-        if (playbackRow) {
-            if (window.customInstrumentBuffers[name]) {
-                playbackRow.style.display = 'flex';
-            } else {
-                playbackRow.style.display = 'none';
-            }
-        }
-    }
-
-    for (let m of window.activeMidi30) {
-        const name = window.noteNames30[window.activeMidi30.indexOf(m)];
-        const keyEl = document.getElementById(`s-key-${m}`);
-        if (keyEl) {
-            if (window.customInstrumentBuffers[name]) {
-                keyEl.classList.add('s-recorded');
-            } else {
-                keyEl.classList.remove('s-recorded');
-            }
-        }
-    }
-};
-
-// [HOOK: SYNTHESIA_RENDER]
 window.initSynthesiaCanvas = function() {
     synthCanvas = document.getElementById('synthesiaCanvas'); if (!synthCanvas) return;
     synthCtx = synthCanvas.getContext('2d');
     const resize = () => { synthCanvas.width = synthCanvas.clientWidth; synthCanvas.height = synthCanvas.clientHeight; };
-    window.addEventListener('resize', resize); resize();
+    window.addEventListener('resize', resize); setTimeout(resize, 100);
     
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
     let totalWhiteKeys = 0; const whiteKeyIndices = {};
@@ -193,15 +50,13 @@ window.initSynthesiaCanvas = function() {
 
 window.renderSynthesia = function(now, elapsed) {
     if (!synthCtx || !synthCanvas) return;
-    
-    synthCtx.fillStyle = '#0a0a1a'; 
-    synthCtx.fillRect(0, 0, synthCanvas.width, synthCanvas.height);
+    synthCtx.clearRect(0, 0, synthCanvas.width, synthCanvas.height);
 
     if (isPlaying) {
         const bpm = parseFloat(document.getElementById('bpmSlider').value);
         const beatDuration = 60 / bpm;
         
-        synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         synthCtx.lineWidth = 1;
         for (let m = window.startMidi; m <= window.endMidi; m++) {
             if (m % 12 === 0) { 
@@ -210,26 +65,6 @@ window.renderSynthesia = function(now, elapsed) {
                     const x = map.xPct * synthCanvas.width;
                     synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); synthCtx.stroke();
                 }
-            }
-        }
-
-        let beatsPerMeasure = 4;
-        if (window.loadedSong && window.loadedSong.meter) {
-            const match = window.loadedSong.meter.match(/^(\d+)\//);
-            if (match) beatsPerMeasure = parseInt(match[1], 10);
-        }
-        const currentBeat = elapsed / beatDuration;
-        const startMeasure = Math.floor(currentBeat / beatsPerMeasure);
-        const endMeasure = Math.ceil((currentBeat + (lookaheadSec / beatDuration)) / beatsPerMeasure);
-
-        synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        synthCtx.lineWidth = 1;
-        for (let m = startMeasure; m <= endMeasure; m++) {
-            const measureBeat = m * beatsPerMeasure;
-            const measureSec = measureBeat * beatDuration;
-            if (measureSec >= elapsed && measureSec <= elapsed + lookaheadSec) {
-                let y = synthCanvas.height - ((measureSec - elapsed) / lookaheadSec) * synthCanvas.height;
-                synthCtx.beginPath(); synthCtx.moveTo(0, y); synthCtx.lineTo(synthCanvas.width, y); synthCtx.stroke();
             }
         }
     }
@@ -242,131 +77,27 @@ window.renderSynthesia = function(now, elapsed) {
     window.visualTimeline.forEach(note => {
         const noteStartSec = note.beat * beatDuration;
         const noteEndSec = (note.beat + note.durationBeats) * beatDuration;
-
         if (noteEndSec < elapsed || noteStartSec > elapsed + lookaheadSec) return;
 
         const map = canvasMap[note.midi]; if (!map) return;
-
         let yBottom = synthCanvas.height - ((noteStartSec - elapsed) / lookaheadSec) * synthCanvas.height;
         let yTop = synthCanvas.height - ((noteEndSec - elapsed) / lookaheadSec) * synthCanvas.height;
         let h = Math.max(yBottom - yTop, 4); 
         let y = yTop;
 
-        synthCtx.fillStyle = note.type === 'chord' ? '#c77df3' : '#50fa7b';
-        synthCtx.strokeStyle = note.type === 'chord' ? '#9d5cc4' : '#3cb360';
-        synthCtx.lineWidth = 1.5;
+        synthCtx.fillStyle = note.type === 'chord' ? '#a78bfa' : '#34d399';
+        let w = map.isBlack ? 0.0115 * synthCanvas.width : map.wPct * synthCanvas.width; 
+        let x = map.isBlack ? map.leftPct * synthCanvas.width - (w / 2) : map.xPct * synthCanvas.width;
+        let r = Math.min(w / 2, 4);
 
-        let x, w;
-        if (map.isBlack) {
-            w = 0.0115 * synthCanvas.width; 
-            x = map.leftPct * synthCanvas.width - (w / 2);
-        } else {
-            w = map.wPct * synthCanvas.width; 
-            x = map.xPct * synthCanvas.width;
-        }
-
-        let radius = Math.min(w / 2, 4);
-        drawRoundRect(synthCtx, x + 0.5, y, w - 1, h, radius);
+        synthCtx.beginPath();
+        synthCtx.roundRect(x + 0.5, y, w - 1, h, r);
         synthCtx.fill();
-        synthCtx.stroke();
     });
 };
 
-function drawRoundRect(ctx, x, y, w, h, r) {
-    if (w < 2 * r) r = w / 2;
-    if (h < 2 * r) r = h / 2;
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-}
-
-// [HOOK: STAFF_RENDER]
-window.initStaffCanvas = function() {
-    staffCanvas = document.getElementById('staffCanvas'); if (!staffCanvas) return;
-    staffCtx = staffCanvas.getContext('2d');
-    const resize = () => { staffCanvas.width = staffCanvas.clientWidth; staffCanvas.height = staffCanvas.clientHeight; window.renderScrollingStaff(0); };
-    window.addEventListener('resize', resize); resize();
-};
-
-window.renderScrollingStaff = function(currentBeat) {
-    if (!staffCanvas || !staffCtx) return;
-    const ctx = staffCtx; const w = staffCanvas.width; const h = staffCanvas.height;
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
-    const gap = 14; const centerY_treble = h * 0.26; const centerY_bass = h * 0.74;   
-    const playLineX = w / 2; const pixelsPerBeat = 60;        
-
-    ctx.strokeStyle = "#cccccc"; ctx.lineWidth = 1;
-    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(0, centerY_treble + i * gap); ctx.lineTo(w, centerY_treble + i * gap); ctx.stroke(); }
-    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(0, centerY_bass + i * gap); ctx.lineTo(w, centerY_bass + i * gap); ctx.stroke(); }
-
-    let beatsPerMeasure = 4;
-    if (window.loadedSong && window.loadedSong.meter) { const match = window.loadedSong.meter.match(/^(\d+)\//); if (match) beatsPerMeasure = parseInt(match[1], 10); }
-
-    const startMeasure = Math.floor((currentBeat - (playLineX / pixelsPerBeat)) / beatsPerMeasure);
-    const endMeasure = Math.ceil((currentBeat + ((w - playLineX) / pixelsPerBeat)) / beatsPerMeasure);
-
-    ctx.strokeStyle = "#bbbbbb"; ctx.lineWidth = 1.5;
-    for (let m = Math.max(0, startMeasure); m <= endMeasure; m++) {
-        const measureBeat = m * beatsPerMeasure; const mx = playLineX + (measureBeat - currentBeat) * pixelsPerBeat;
-        if (mx >= 85 && mx <= w) {
-            ctx.beginPath(); ctx.moveTo(mx, centerY_treble - 2 * gap); ctx.lineTo(mx, centerY_bass + 2 * gap); ctx.stroke();
-            ctx.fillStyle = "#888888"; ctx.font = "italic bold 13px sans-serif"; ctx.fillText((m + 1).toString(), mx + 6, centerY_treble - 2.5 * gap);
-        }
-    }
-
-    if (currentTrebleNotes.length > 0) {
-        currentTrebleNotes.forEach(note => {
-            const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
-            if (x < 85 || x > w + 100) return; 
-            let displayMidi = note.note > 83 ? note.note - 12 : note.note;
-            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_treble - (step - 38) * (gap / 2);
-            drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_treble, true, note.note > 83, false);
-        });
-    }
-
-    if (currentBassNotes.length > 0) {
-        currentBassNotes.forEach(note => {
-            const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
-            if (x < 85 || x > w + 100) return;
-            let displayMidi = note.note < 36 ? note.note + 12 : note.note;
-            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_bass - (step - 26) * (gap / 2);
-            drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_bass, false, false, note.note < 36);
-        });
-    }
-
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, 85, h);
-    ctx.strokeStyle = "#bbbbbb"; ctx.lineWidth = 1;
-    for (let i = -2; i <= 2; i++) {
-        ctx.beginPath(); ctx.moveTo(0, centerY_treble + i * gap); ctx.lineTo(85, centerY_treble + i * gap); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, centerY_bass + i * gap); ctx.lineTo(85, centerY_bass + i * gap); ctx.stroke();
-    }
-
-    ctx.strokeStyle = "#111111"; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(15, centerY_treble - 2 * gap); ctx.lineTo(15, centerY_bass + 2 * gap); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(15, centerY_treble - 2 * gap); ctx.lineTo(23, centerY_treble - 2 * gap); ctx.moveTo(15, centerY_bass + 2 * gap); ctx.lineTo(23, centerY_bass + 2 * gap); ctx.stroke();
-    ctx.fillStyle = "#111111"; ctx.font = "72px serif"; ctx.fillText("𝄞", 20, centerY_treble + 25); ctx.fillText("𝄢", 20, centerY_bass + 20);
-
-    ctx.strokeStyle = "red"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(playLineX, 15); ctx.lineTo(playLineX, h - 15); ctx.stroke();
-};
-
-function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY, isTreble, is8va, is8vb) {
-    if (duration > 0) { const trailWidth = duration * pixelsPerBeat; ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; ctx.fillRect(x, y - 3, trailWidth, 6); }
-    ctx.strokeStyle = "#444444"; ctx.lineWidth = 1.0;          
-    ctx.save(); ctx.translate(x, y); ctx.rotate(-20 * Math.PI / 180); ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
-    const stemUp = isTreble ? (y > centerY) : (y > centerY); ctx.strokeStyle = "#000000"; ctx.lineWidth = 2.2;         
-    ctx.beginPath(); ctx.moveTo(stemUp ? x + 6 : x - 6, y); ctx.lineTo(stemUp ? x + 6 : x - 6, stemUp ? y - 38 : y + 38); ctx.stroke();
-    if (is8va || is8vb) { ctx.fillStyle = "#ff5555"; ctx.font = "italic bold 12px sans-serif"; ctx.fillText(is8va ? "8va" : "8vb", x - 10, is8va ? y - 14 : y + 18); }
-}
-
-// [HOOK: PLAYBACK_AND_ANIMATION]
 window.importSongFromJSON = function(songData) {
     window.stopPlayback(false); 
-    document.getElementById('stdName').innerText = songData.name || "Brano Caricato";
-    document.getElementById('stdSub').innerText = songData.sub || "La tastiera reale a 88 tasti è attiva.";
     const bpm = songData.bpm || 105;
     document.getElementById('bpmSlider').value = bpm; document.getElementById('bpmVal').innerText = bpm;
 
@@ -385,24 +116,21 @@ window.importSongFromJSON = function(songData) {
     currentTrebleNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'melody', volume: item.velocity ? item.velocity/127 : 0.8 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
     currentBassNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'chord', volume: item.velocity ? item.velocity/127 : 0.7 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
     playbackTimeline.sort((a, b) => a.beat - b.beat);
-    
     window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
-
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
-    window.renderScrollingStaff(0);
 };
 
-window.playComposition = async function(userInitiated = true) {
+window.playComposition = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
-    if (!audioCtx || Object.keys(pianoBuffers).length === 0) return alert("Attendi il caricamento dello strumento!");
-    if (audioCtx.state === 'suspended') audioCtx.resume(); 
-    window.stopPlayback(false); 
-    if (!window.loadedSong) return alert("Carica uno spartito prima di premere Play!");
-
-    window.importSongFromJSON(window.loadedSong);
-    playStartTime = audioCtx.currentTime + 0.50; isPlaying = true; lastScheduledBeat = 0; scheduledNotes = []; 
-    document.getElementById('progressContainer').style.display = 'block';
+    if (Object.keys(pianoBuffers).length === 0) return alert("Attendi un istante, strumento in caricamento! 🎹");
     
+    window.stopPlayback(false); 
+    window.importSongFromJSON(window.loadedSong);
+    
+    const btn = document.getElementById('mainPlayBtn');
+    if (btn) { btn.innerHTML = '⏸️ PAUSA'; btn.classList.add('playing'); }
+
+    playStartTime = audioCtx.currentTime + 0.10; isPlaying = true; lastScheduledBeat = 0; scheduledNotes = []; 
     schedulerWorker.postMessage('start');
     requestAnimationFrame(animateProgress);
 };
@@ -411,9 +139,6 @@ function animateProgress() {
     if (!isPlaying || !audioCtx) return;
     const now = audioCtx.currentTime; const elapsed = now - playStartTime;
     window.renderSynthesia(now, elapsed);
-
-    const bpm = parseFloat(document.getElementById('bpmSlider').value);
-    window.renderScrollingStaff(Math.max(0, (elapsed - 0.08) / (60 / bpm)));
 
     if (elapsed >= totalDurationSec) { 
         window.stopPlayback(false); 
@@ -429,10 +154,8 @@ function animateProgress() {
         if(!k.classList.contains('manual-active')) {
             const midi = parseInt(k.dataset.midi);
             const activeNote = activeNotes.find(n => n.midi === midi);
-            k.classList.remove('active-key', 'active-chord', 'active-melody');
-            if (activeNote) {
-                k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
-            }
+            k.classList.remove('active-chord', 'active-melody');
+            if (activeNote) k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
         }
     });
     progressAnimationId = requestAnimationFrame(animateProgress);
@@ -440,14 +163,17 @@ function animateProgress() {
 
 window.stopPlayback = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
+    
+    const btn = document.getElementById('mainPlayBtn');
+    if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
+
     activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
     activeNodes = []; scheduledNotes = []; isPlaying = false; 
     if (schedulerWorker) schedulerWorker.postMessage('stop');
     cancelAnimationFrame(progressAnimationId);
-    document.getElementById('progressBar').style.width = '0%'; document.getElementById('progressContainer').style.display = 'none';
-    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-key'));
-    window.renderScrollingStaff(0); window.renderSynthesia(0, 0);
+    document.getElementById('progressBar').style.width = '0%';
+    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
+    window.renderSynthesia(0, 0);
 };
 
-window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; if (!isPlaying) window.renderScrollingStaff(0); };
-// END OF FILE ui.js
+window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; };

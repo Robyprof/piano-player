@@ -47,7 +47,6 @@ window.renderSamplerKeyboard = function() {
     if (!kb) return;
     kb.innerHTML = '';
     
-    // Forza la classe originale per far funzionare il tuo CSS
     kb.className = "keyboard sampler-mode"; 
     
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
@@ -64,18 +63,27 @@ window.renderSamplerKeyboard = function() {
         let keyDiv = document.createElement('div'); keyDiv.id = `s-key-${m}`;
         
         if (!isBlack) {
-            // Applica l'opacità originale (s-inactive) per spegnere i tasti bloccati
             keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            if (!isActive30) keyDiv.style.opacity = "0.2"; // Forza visiva spegnimento
+            // FORZATURA COLORE STANDARD BIANCO
+            keyDiv.style.background = "#ffffff";
+            if (!isActive30) {
+                keyDiv.style.opacity = "0.3"; 
+                keyDiv.style.pointerEvents = "none";
+            }
 
             if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000;">${noteName}</span>`;
             document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
-            if (!isActive30) keyDiv.style.opacity = "0.2"; // Forza visiva spegnimento
+            // FORZATURA COLORE STANDARD NERO
+            keyDiv.style.background = "#111111";
+            if (!isActive30) {
+                keyDiv.style.opacity = "0.3";
+                keyDiv.style.pointerEvents = "none";
+            }
 
             keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
-            keyDiv.style.pointerEvents = 'auto'; 
+            keyDiv.style.pointerEvents = isActive30 ? 'auto' : 'none'; 
             if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 9px; font-weight: bold; color: #fff;">${noteName}</span>`;
             document.getElementById('blackKeysSampler').appendChild(keyDiv);
         }

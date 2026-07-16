@@ -92,3 +92,7 @@ body { font-family: var(--font-family); background-color: var(--bg-darkest); col
 input[type="range"] { -webkit-appearance: none; background: var(--bg-dark); height: 6px; border-radius: 10px; outline: none; border: 1px solid var(--border-color); width: 100%; }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--text-main); cursor: pointer; transition: transform 0.1s; }
 input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--accent-melody); }
+
+/* Sovrascrive i gradienti DAW per la tastiera del campionatore */
+.keyboard.sampler-mode .key-white { background: #ffffff !important; }
+.keyboard.sampler-mode .key-black { background: #111111 !important; }

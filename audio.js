@@ -11,14 +11,18 @@ window.mediaRecorder = null;
 let recordingChunks = [];
 let currentSelectedSamplerNote = null;
 let recordingTimeout = null;
+let timerInterval = null; 
 
-// Gestione Registrazione MP3 Nativizzata, Selezione Mic e Soglia di Attivazione
+// Gestione Registrazione MP3 Nativizzata, Selezione Mic, Filtri DSP e Oscilloscopio
 let micStream = null;
 let scriptProcessor = null;
+let biquadFilter = null;
+let analyserNode = null;
 let recordedPCMChunks = [];
 let isMicRecording = false;
 let isWaitingForTrigger = false;
-const triggerThreshold = 0.02; // Soglia minima per rilevare il suono netto del pianoforte
+const triggerThreshold = 0.02; // Soglia per rilevare il suono del tasto
+let drawVisualId = null;
 
 // Funzione di caricamento sicuro e resiliente per lamejs (con fallback automatico multi-CDN)
 window.loadLamejs = function() {
@@ -27,7 +31,6 @@ window.loadLamejs = function() {
             resolve(window.lamejs);
             return;
         }
-        // Sorgenti CDN alternative ordinate per affidabilità
         const urls = [
             "https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js",
             "https://unpkg.com/lamejs@1.2.1/lame.min.js",
@@ -181,10 +184,97 @@ window.populateMicDropdown = async function() {
     }
 };
 
+// Funzione di disegno dell'oscilloscopio in tempo reale
+window.drawRealTimeWave = function() {
+    if (!isMicRecording && !isWaitingForTrigger) {
+        if (drawVisualId) cancelAnimationFrame(drawVisualId);
+        return;
+    }
+    drawVisualId = requestAnimationFrame(window.drawRealTimeWave);
+    const canvas = document.getElementById('samplerWaveformCanvas');
+    if (!canvas || !analyserNode) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    const bufferLength = analyserNode.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyserNode.getByteTimeDomainData(dataArray);
+    
+    ctx.fillStyle = '#0d0e15';
+    ctx.fillRect(0, 0, width, height);
+    
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = isWaitingForTrigger ? '#ffb86c' : '#50fa7b'; // Giallo in attesa, verde in registrazione
+    ctx.beginPath();
+    
+    const sliceWidth = width / bufferLength;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * height / 2;
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+        x += sliceWidth;
+    }
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+};
+
+// Disegna l'intera forma d'onda statica post-elaborazione
+window.drawStaticWaveform = function(pcmArray) {
+    const canvas = document.getElementById('samplerWaveformCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.fillStyle = '#0d0e15';
+    ctx.fillRect(0, 0, width, height);
+    
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#bd93f9'; // Elegante viola per indicare traccia salvata completata
+    ctx.beginPath();
+    
+    const step = Math.ceil(pcmArray.length / width);
+    ctx.moveTo(0, height / 2);
+    for (let i = 0; i < width; i++) {
+        let min = 1.0;
+        let max = -1.0;
+        for (let j = 0; j < step; j++) {
+            const index = (i * step) + j;
+            if (index >= pcmArray.length) break;
+            const datum = pcmArray[index];
+            if (datum < min) min = datum;
+            if (datum > max) max = datum;
+        }
+        ctx.lineTo(i, (1 + min) * height / 2);
+        ctx.lineTo(i, (1 + max) * height / 2);
+    }
+    ctx.stroke();
+};
+
+window.clearWaveformCanvas = function() {
+    const canvas = document.getElementById('samplerWaveformCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0d0e15';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#44475a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, height_placeholder = canvas.height / 2);
+    ctx.lineTo(canvas.width, height_placeholder);
+    ctx.stroke();
+};
+
 window.toggleRecording = async function() {
     if (!currentSelectedSamplerNote) return alert("Seleziona prima una nota!");
     
-    // Assicura il caricamento corretto di lamejs prima della registrazione
     try {
         await window.loadLamejs();
     } catch (err) {
@@ -194,12 +284,22 @@ window.toggleRecording = async function() {
     const noteName = currentSelectedSamplerNote.name;
     const btn = document.getElementById('btn-rec-modal');
     
-    // Se stiamo aspettando il trigger o registrando attivamente, il click ferma l'intera sessione
     if (isWaitingForTrigger || isMicRecording) {
         if (recordingTimeout) {
             clearTimeout(recordingTimeout);
             recordingTimeout = null;
         }
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        if (drawVisualId) {
+            cancelAnimationFrame(drawVisualId);
+            drawVisualId = null;
+        }
+        
+        const timerEl = document.getElementById('samplerTimer');
+        if (timerEl) timerEl.style.display = 'none';
 
         const wasRecording = isMicRecording;
         isWaitingForTrigger = false;
@@ -212,24 +312,53 @@ window.toggleRecording = async function() {
             scriptProcessor.disconnect();
             scriptProcessor = null;
         }
+        if (biquadFilter) {
+            biquadFilter.disconnect();
+            biquadFilter = null;
+        }
+        if (analyserNode) {
+            analyserNode.disconnect();
+            analyserNode = null;
+        }
         if (micStream) {
             micStream.getTracks().forEach(track => track.stop());
             micStream = null;
         }
         
-        // Se la registrazione è stata chiusa manualmente prima del trigger, non salviamo dati vuoti
         if (!wasRecording || recordedPCMChunks.length === 0) {
-            console.log("Registrazione annullata prima del rilevamento del suono.");
+            window.clearWaveformCanvas();
+            console.log("Registrazione annullata prima del trigger acustico.");
             return;
         }
         
-        // Assembla i campioni Float32 accumulati
-        let totalLength = recordedPCMChunks.reduce((acc, val) => acc + val.length, 0);
-        let float32PCM = new Float32Array(totalLength);
+        // Costruzione buffer fisso a 25 secondi riempito di silenzio (0)
+        const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+        const totalTargetLength = 25 * sampleRate;
+        let float32PCM = new Float32Array(totalTargetLength); 
+        
         let offset = 0;
         for (let chunk of recordedPCMChunks) {
+            if (offset + chunk.length > totalTargetLength) {
+                let remaining = totalTargetLength - offset;
+                float32PCM.set(chunk.subarray(0, remaining), offset);
+                offset += remaining;
+                break;
+            }
             float32PCM.set(chunk, offset);
             offset += chunk.length;
+        }
+        
+        // --- 1. APPLICAZIONE DEL NOISE GATE IN POST-PROCESSING (Filtro antirumore digitale) ---
+        const gateThreshold = 0.005; 
+        for (let i = 0; i < float32PCM.length; i++) {
+            if (Math.abs(float32PCM[i]) < gateThreshold) {
+                float32PCM[i] = 0.0; 
+            }
+        }
+        
+        // --- 2. DISEGNO DELLA WAVEFORM STATICA FINALE ---
+        if (window.drawStaticWaveform) {
+            window.drawStaticWaveform(float32PCM);
         }
         
         // Conversione in formato Int16 per l'encoder
@@ -240,7 +369,6 @@ window.toggleRecording = async function() {
         }
         
         try {
-            const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
             const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
             const mp3Data = [];
             const sampleBlockSize = 1152;
@@ -289,6 +417,15 @@ window.toggleRecording = async function() {
         micStream = await navigator.mediaDevices.getUserMedia(constraints);
         const source = audioCtx.createMediaStreamSource(micStream);
         
+        // --- 1. APPLICAZIONE DEL FILTRO DSP PASSA-ALTO A 80HZ (Rimozione ronzii elettrici/PC) ---
+        biquadFilter = audioCtx.createBiquadFilter();
+        biquadFilter.type = "highpass";
+        biquadFilter.frequency.value = 80; 
+        
+        // --- 2. CONFIGURAZIONE DEL MODULO OSCILLOSCOPIO ---
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 2048;
+        
         scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
         recordedPCMChunks = [];
         isWaitingForTrigger = true;
@@ -307,24 +444,43 @@ window.toggleRecording = async function() {
                     if (val > maxVal) maxVal = val;
                 }
                 
-                // Se viene rilevato un suono netto che supera la soglia, comincia la registrazione
                 if (maxVal > triggerThreshold) {
                     isWaitingForTrigger = false;
                     isMicRecording = true;
                     
-                    // Modifica asincrona sicura per il thread grafico principale
+                    const durationLimit = parseInt(document.getElementById('samplerDurationSlider').value, 10) || 25;
+                    
                     setTimeout(() => {
                         btn.classList.remove('waiting-pulse');
                         btn.classList.add('recording-pulse');
-                        btn.innerText = "⏹ Registrazione attiva... (Max 25s)";
+                        btn.innerText = "⏹ Ferma Registrazione";
+                        
+                        const timerEl = document.getElementById('samplerTimer');
+                        if (timerEl) {
+                            timerEl.style.display = 'inline-block';
+                            timerEl.innerText = `⏱️ 0.0s / ${durationLimit}s`;
+                        }
                     }, 0);
                     
-                    // Imposta lo stop automatico a 25 secondi dall'istante di trigger
+                    let recordStartTime = Date.now();
+                    timerInterval = setInterval(() => {
+                        if (!isMicRecording) {
+                            clearInterval(timerInterval);
+                            return;
+                        }
+                        let elapsed = (Date.now() - recordStartTime) / 1000;
+                        if (elapsed > durationLimit) elapsed = durationLimit;
+                        const timerEl = document.getElementById('samplerTimer');
+                        if (timerEl) {
+                            timerEl.innerText = `⏱️ ${elapsed.toFixed(1)}s / ${durationLimit}s`;
+                        }
+                    }, 100);
+                    
                     recordingTimeout = setTimeout(() => {
                         if (isMicRecording) {
                             window.toggleRecording(); 
                         }
-                    }, 25000);
+                    }, durationLimit * 1000);
                 }
             }
             
@@ -333,8 +489,14 @@ window.toggleRecording = async function() {
             }
         };
         
-        source.connect(scriptProcessor);
+        // Connessioni catena audio: Mic -> Filtro Passa-Alto -> Analizzatore Oscilloscopio -> Registratore PCM -> Uscita
+        source.connect(biquadFilter);
+        biquadFilter.connect(analyserNode);
+        analyserNode.connect(scriptProcessor);
         scriptProcessor.connect(audioCtx.destination);
+        
+        // Avvia il loop di disegno grafico real-time
+        window.drawRealTimeWave();
         
     } catch (err) {
         console.error(err);

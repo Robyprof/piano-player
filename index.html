@@ -185,9 +185,23 @@
 
             <div class="sampler-action-panel" id="samplerActionPanel">
                 <h3 id="samplerSelectedNoteLabel">Seleziona una nota dalla tastiera</h3>
-                <div style="margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+                
+                <!-- Selezione Microfono -->
+                <div style="margin-bottom: 12px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <label for="samplerMicSelect" style="color: #a4b3c6; font-size: 0.95rem;">Scegli Microfono:</label>
                     <select id="samplerMicSelect" class="db-select" style="max-width: 320px;"></select>
+                </div>
+                
+                <!-- Selezione della Durata Effettiva e Timer Grafico -->
+                <div style="margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <label style="color: #a4b3c6; font-size: 0.95rem;">Tempo di registrazione: <span id="samplerDurationVal" style="color: #50fa7b; font-weight: bold;">25</span> s</label>
+                    <input type="range" id="samplerDurationSlider" min="1" max="25" value="25" oninput="document.getElementById('samplerDurationVal').innerText = this.value" style="width: 150px; background: #212435;">
+                    <span id="samplerTimer" style="font-weight: bold; font-size: 1.1rem; color: #ff5555; display: none; margin-left: 10px;">⏱️ 0.0s</span>
+                </div>
+                
+                <!-- Schermo Grafico Waveform (Oscilloscopio real-time e forma d'onda statica) -->
+                <div style="width: 100%; display: flex; justify-content: center;">
+                    <canvas id="samplerWaveformCanvas" width="800" height="120" style="width: 100%; max-width: 800px; height: 100px; background: #0d0e15; border: 1px solid #44475a; border-radius: 6px; margin-bottom: 15px; display: block;"></canvas>
                 </div>
                 
                 <!-- Riga di Riproduzione & Riascolto Campione -->

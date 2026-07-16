@@ -7,10 +7,18 @@ const pianoBuffers = {};
 
 let schedulerWorker;
 window.customInstrumentBuffers = {}; 
-window.mediaRecorder = null; // Reso globale su window per risolvere errori di scope tra moduli
+window.mediaRecorder = null; 
 let recordingChunks = [];
 let currentSelectedSamplerNote = null;
 let recordingTimeout = null;
+
+// Gestione Registrazione MP3 Nativizzata, Selezione Mic e Soglia di Attivazione
+let micStream = null;
+let scriptProcessor = null;
+let recordedPCMChunks = [];
+let isMicRecording = false;
+let isWaitingForTrigger = false;
+const triggerThreshold = 0.02; // Soglia minima per rilevare il suono netto del pianoforte
 
 // [HOOK: AUDIO_WORKER]
 window.initSchedulerWorker = function() {
@@ -111,27 +119,178 @@ window.scheduleAudioNotes = function() {
 };
 
 // [HOOK: SAMPLER_RECORDER]
+window.populateMicDropdown = async function() {
+    try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const select = document.getElementById('samplerMicSelect');
+        if (!select) return;
+        
+        select.innerHTML = '';
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        
+        audioInputs.forEach((device, index) => {
+            const opt = document.createElement('option');
+            opt.value = device.deviceId;
+            opt.textContent = device.label || `Microfono ${index + 1}`;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error("Errore nell'accesso o enumerazione dei microfoni:", err);
+    }
+};
+
 window.toggleRecording = async function() {
     if (!currentSelectedSamplerNote) return alert("Seleziona prima una nota!");
     const noteName = currentSelectedSamplerNote.name;
     const btn = document.getElementById('btn-rec-modal');
     
-    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') {
-        window.mediaRecorder.stop(); btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono"; clearTimeout(recordingTimeout); return;
+    // Se stiamo aspettando il trigger o registrando attivamente, il click ferma l'intera sessione
+    if (isWaitingForTrigger || isMicRecording) {
+        if (recordingTimeout) {
+            clearTimeout(recordingTimeout);
+            recordingTimeout = null;
+        }
+
+        const wasRecording = isMicRecording;
+        isWaitingForTrigger = false;
+        isMicRecording = false;
+        
+        btn.classList.remove('recording-pulse', 'waiting-pulse'); 
+        btn.innerText = "🎤 Registra Microfono";
+        
+        if (scriptProcessor) {
+            scriptProcessor.disconnect();
+            scriptProcessor = null;
+        }
+        if (micStream) {
+            micStream.getTracks().forEach(track => track.stop());
+            micStream = null;
+        }
+        
+        // Se la registrazione è stata chiusa manualmente prima del trigger, non salviamo dati vuoti
+        if (!wasRecording || recordedPCMChunks.length === 0) {
+            print("Registrazione annullata prima del rilevamento del suono.");
+            return;
+        }
+        
+        // Assembla i campioni Float32 accumulati
+        let totalLength = recordedPCMChunks.reduce((acc, val) => acc + val.length, 0);
+        let float32PCM = new Float32Array(totalLength);
+        let offset = 0;
+        for (let chunk of recordedPCMChunks) {
+            float32PCM.set(chunk, offset);
+            offset += chunk.length;
+        }
+        
+        // Conversione in formato Int16 per l'encoder
+        let int16PCM = new Int16Array(float32PCM.length);
+        for (let i = 0; i < float32PCM.length; i++) {
+            let s = Math.max(-1, Math.min(1, float32PCM[i]));
+            int16PCM[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        
+        try {
+            const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+            const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+            const mp3Data = [];
+            const sampleBlockSize = 1152;
+            
+            for (let i = 0; i < int16PCM.length; i += sampleBlockSize) {
+                const chunk = int16PCM.subarray(i, i + sampleBlockSize);
+                const mp3buf = mp3encoder.encodeBuffer(chunk);
+                if (mp3buf.length > 0) {
+                    mp3Data.push(mp3buf);
+                }
+            }
+            const mp3buf = mp3encoder.flush();
+            if (mp3buf.length > 0) {
+                mp3Data.push(mp3buf);
+            }
+            
+            const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+            window.customInstrumentBuffers[noteName] = mp3Blob;
+            window.updateSamplerProgress();
+            
+            if (window.playRecordedSample) {
+                window.playRecordedSample(noteName);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Errore durante l'encoding MP3.");
+        }
+        return;
     }
 
+    // Avvio della sessione in modalità ascolto di trigger
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        window.mediaRecorder = new MediaRecorder(stream); recordingChunks = [];
-        window.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data); };
-        window.mediaRecorder.onstop = () => {
-            window.customInstrumentBuffers[noteName] = new Blob(recordingChunks, { type: 'audio/webm' }); 
-            btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
-            window.updateSamplerProgress(); stream.getTracks().forEach(track => track.stop());
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        
+        const micSelect = document.getElementById('samplerMicSelect');
+        const deviceId = micSelect ? micSelect.value : undefined;
+        
+        const constraints = {
+            audio: deviceId ? { deviceId: { exact: deviceId } } : true
         };
-        window.mediaRecorder.start(); btn.classList.add('recording-pulse'); btn.innerText = "⏹ Ferma Registrazione";
-        recordingTimeout = setTimeout(() => { if (window.mediaRecorder.state === 'recording') { window.mediaRecorder.stop(); alert("Limite di 25s raggiunto."); } }, 25000);
-    } catch (err) { alert("Errore microfono."); }
+        
+        micStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const source = audioCtx.createMediaStreamSource(micStream);
+        
+        scriptProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+        recordedPCMChunks = [];
+        isWaitingForTrigger = true;
+        isMicRecording = false;
+        
+        btn.classList.add('waiting-pulse'); 
+        btn.innerText = "🎙 In attesa del suono (suona il tasto)...";
+        
+        scriptProcessor.onaudioprocess = function(e) {
+            const inputData = e.inputBuffer.getChannelData(0);
+            
+            if (isWaitingForTrigger) {
+                let maxVal = 0;
+                for (let i = 0; i < inputData.length; i++) {
+                    const val = Math.abs(inputData[i]);
+                    if (val > maxVal) maxVal = val;
+                }
+                
+                // Se viene rilevato un suono netto che supera la soglia, comincia la registrazione
+                if (maxVal > triggerThreshold) {
+                    isWaitingForTrigger = false;
+                    isMicRecording = true;
+                    
+                    // Modifica asincrona sicura per il thread grafico principale
+                    setTimeout(() => {
+                        btn.classList.remove('waiting-pulse');
+                        btn.classList.add('recording-pulse');
+                        btn.innerText = "⏹ Registrazione attiva... (Max 25s)";
+                    }, 0);
+                    
+                    // Imposta lo stop automatico a 25 secondi dall'istante di trigger
+                    recordingTimeout = setTimeout(() => {
+                        if (isMicRecording) {
+                            window.toggleRecording(); 
+                        }
+                    }, 25000);
+                }
+            }
+            
+            if (isMicRecording) {
+                recordedPCMChunks.push(new Float32Array(inputData));
+            }
+        };
+        
+        source.connect(scriptProcessor);
+        scriptProcessor.connect(audioCtx.destination);
+        
+    } catch (err) {
+        console.error(err);
+        alert("Impossibile accedere al microfono selezionato.");
+    }
 };
 
 window.handleUploadNote = function(event) {
@@ -143,7 +302,9 @@ window.handleUploadNote = function(event) {
 };
 
 window.exportInstrumentZip = function() {
-    if (Object.keys(window.customInstrumentBuffers).length === 0) return alert("Non hai registrato note!");
+    if (Object.keys(window.customInstrumentBuffers).length < 30) {
+        return alert("Devi prima registrare tutte e 30 le note per poter archiviare lo strumento!");
+    }
     const zip = new JSZip();
     for (const [note, blob] of Object.entries(window.customInstrumentBuffers)) zip.file(`${note}.mp3`, blob); 
     zip.generateAsync({type:"blob"}).then(content => {
@@ -152,11 +313,9 @@ window.exportInstrumentZip = function() {
 };
 
 // [HOOK: PLAY_RECORDED_SAMPLE]
-// SUONA IL CAMPIONE REGISTRATO DALL'UTENTE QUANDO CLICCA SULLA TASTIERA DI PROVA
 window.playRecordedSample = async function(noteName) {
     const blob = window.customInstrumentBuffers[noteName];
     if (!blob) {
-        // Se non c'è ancora un campione registrato, suoniamo la nota di default dal campionatore principale (se caricato)
         const midi = window.activeMidi30[window.noteNames30.indexOf(noteName)];
         if (pianoBuffers[midi]) {
             window.playSampledNote(midi, audioCtx.currentTime, 1.5, 1.0, 'manual');
@@ -165,7 +324,6 @@ window.playRecordedSample = async function(noteName) {
         }
         return;
     }
-    // Suoniamo il campione registrato/caricato dall'utente
     try {
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);

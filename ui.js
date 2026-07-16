@@ -1,10 +1,9 @@
 // [HOOK: UI_GLOBALS]
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
-const lookaheadSec = 4.0; // 4 secondi per far scendere le note con assoluta eleganza dall'alto [3]
+const lookaheadSec = 4.0; 
 let currentTrebleNotes = [], currentBassNotes = [];
 
-// FUNZIONE GLOBALE DI SUPPORTO (Portata al livello superiore per evitare errori di caricamento)
 window.midiToDiatonicStep = function(midi) { 
     const octave = Math.floor(midi / 12) - 1; 
     const noteClass = midi % 12; 
@@ -39,7 +38,6 @@ window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
     kb.innerHTML = '';
     
-    // Eredita la struttura esatta e le classi della tastiera principale più la classe .sampler-mode
     kb.className = "keyboard sampler-mode"; 
     
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
@@ -62,7 +60,7 @@ window.renderSamplerKeyboard = function() {
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
             keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
-            keyDiv.style.pointerEvents = 'auto'; // Fondamentale per ricevere i click sopra il container trasparente
+            keyDiv.style.pointerEvents = 'auto'; 
             if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
             document.getElementById('blackKeysSampler').appendChild(keyDiv);
         }
@@ -79,10 +77,11 @@ window.openSamplerModal = function() {
     document.getElementById('samplerModal').style.display = 'flex';
     window.renderSamplerKeyboard(); window.updateSamplerProgress();
     document.getElementById('samplerActionPanel').style.display = 'none';
+    if (window.populateMicDropdown) window.populateMicDropdown();
 };
 window.closeSamplerModal = function() { 
     document.getElementById('samplerModal').style.display = 'none'; 
-    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') window.mediaRecorder.stop(); 
+    if (isMicRecording && window.toggleRecording) window.toggleRecording();
 };
 
 window.selectSamplerNote = function(midi, name) {
@@ -98,10 +97,9 @@ window.selectSamplerNote = function(midi, name) {
     document.getElementById('samplerActionPanel').style.display = 'block';
 
     const btn = document.getElementById('btn-rec-modal');
-    if (window.mediaRecorder && window.mediaRecorder.state === 'recording') { window.mediaRecorder.stop(); clearTimeout(recordingTimeout); }
+    if (isMicRecording && window.toggleRecording) { window.toggleRecording(); }
     btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
 
-    // NUOVA FUNZIONE: Suona subito la nota per provarla mentre registri!
     if (window.playRecordedSample) {
         window.playRecordedSample(name);
     }
@@ -139,23 +137,20 @@ window.initSynthesiaCanvas = function() {
     }
 };
 
-// GRAFICA DELLA CASCATA (Riscritto per slegare la discesa dal basso scheduler dell'AudioContext)
 window.renderSynthesia = function(now, elapsed) {
     if (!synthCtx || !synthCanvas) return;
     
-    // SFONDO SCURO E GRIGLIE [MOD]
-    synthCtx.fillStyle = '#0a0a1a'; // Sfondo blu scuro in stile Synthesia
+    synthCtx.fillStyle = '#0a0a1a'; 
     synthCtx.fillRect(0, 0, synthCanvas.width, synthCanvas.height);
 
     if (isPlaying) {
         const bpm = parseFloat(document.getElementById('bpmSlider').value);
         const beatDuration = 60 / bpm;
         
-        // --- Griglia Verticale (Linee ogni Ottava sul DO) ---
         synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         synthCtx.lineWidth = 1;
         for (let m = window.startMidi; m <= window.endMidi; m++) {
-            if (m % 12 === 0) { // Midi % 12 === 0 è sempre la nota Do (C)
+            if (m % 12 === 0) { 
                 const map = canvasMap[m];
                 if (map && !map.isBlack) {
                     const x = map.xPct * synthCanvas.width;
@@ -164,7 +159,6 @@ window.renderSynthesia = function(now, elapsed) {
             }
         }
 
-        // --- Griglia Orizzontale (Fine Battuta Pentagramma) ---
         let beatsPerMeasure = 4;
         if (window.loadedSong && window.loadedSong.meter) {
             const match = window.loadedSong.meter.match(/^(\d+)\//);
@@ -195,19 +189,15 @@ window.renderSynthesia = function(now, elapsed) {
         const noteStartSec = note.beat * beatDuration;
         const noteEndSec = (note.beat + note.durationBeats) * beatDuration;
 
-        // Filtra le note fuori dallo spazio visibile
         if (noteEndSec < elapsed || noteStartSec > elapsed + lookaheadSec) return;
 
         const map = canvasMap[note.midi]; if (!map) return;
 
-        // Calcola le coordinate Y di discesa dal cielo [3]
         let yBottom = synthCanvas.height - ((noteStartSec - elapsed) / lookaheadSec) * synthCanvas.height;
         let yTop = synthCanvas.height - ((noteEndSec - elapsed) / lookaheadSec) * synthCanvas.height;
-        let h = Math.max(yBottom - yTop, 4); // Minimo 4px di altezza
+        let h = Math.max(yBottom - yTop, 4); 
         let y = yTop;
 
-        // COLORI VIVACI PER MANO DESTRA E SINISTRA [MOD]
-        // Sinistra = Viola/Rosa, Destra = Verde
         synthCtx.fillStyle = note.type === 'chord' ? '#c77df3' : '#50fa7b';
         synthCtx.strokeStyle = note.type === 'chord' ? '#9d5cc4' : '#3cb360';
         synthCtx.lineWidth = 1.5;
@@ -221,7 +211,6 @@ window.renderSynthesia = function(now, elapsed) {
             x = map.xPct * synthCanvas.width;
         }
 
-        // DISEGNA I RETTANGOLI CON ANGOLI ARROTONDATI [3]
         let radius = Math.min(w / 2, 4);
         drawRoundRect(synthCtx, x + 0.5, y, w - 1, h, radius);
         synthCtx.fill();
@@ -229,7 +218,6 @@ window.renderSynthesia = function(now, elapsed) {
     });
 };
 
-// Funzione geometrica di supporto per arrotondare gli spigoli [3]
 function drawRoundRect(ctx, x, y, w, h, r) {
     if (w < 2 * r) r = w / 2;
     if (h < 2 * r) r = h / 2;
@@ -322,7 +310,7 @@ function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY
 
 // [HOOK: PLAYBACK_AND_ANIMATION]
 window.importSongFromJSON = function(songData) {
-    window.stopPlayback(false); // Non resettare la playlist se importata dal sistema
+    window.stopPlayback(false); 
     document.getElementById('stdName').innerText = songData.name || "Brano Caricato";
     document.getElementById('stdSub').innerText = songData.sub || "La tastiera reale a 88 tasti è attiva.";
     const bpm = songData.bpm || 105;
@@ -344,7 +332,6 @@ window.importSongFromJSON = function(songData) {
     currentBassNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'chord', volume: item.velocity ? item.velocity/127 : 0.7 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
     playbackTimeline.sort((a, b) => a.beat - b.beat);
     
-    // CREA UNA COPIA DELLA TIMELINE PER IL VISUALIZZATORE WATERFALL GRAFICO [3]
     window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
 
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
@@ -353,11 +340,9 @@ window.importSongFromJSON = function(songData) {
 
 window.playComposition = async function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
-    
     if (!audioCtx || Object.keys(pianoBuffers).length === 0) return alert("Attendi il caricamento dello strumento!");
     if (audioCtx.state === 'suspended') audioCtx.resume(); 
     window.stopPlayback(false); 
-    
     if (!window.loadedSong) return alert("Carica uno spartito prima di premere Play!");
 
     window.importSongFromJSON(window.loadedSong);
@@ -401,7 +386,6 @@ function animateProgress() {
 
 window.stopPlayback = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
-    
     activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
     activeNodes = []; scheduledNotes = []; isPlaying = false; 
     if (schedulerWorker) schedulerWorker.postMessage('stop');
@@ -412,3 +396,4 @@ window.stopPlayback = function(userInitiated = true) {
 };
 
 window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; if (!isPlaying) window.renderScrollingStaff(0); };
+// END OF FILE ui.js

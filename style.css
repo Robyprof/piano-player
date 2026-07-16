@@ -40,7 +40,6 @@ p.subtitle { text-align: center; margin-top: 0; margin-bottom: 30px; color: #627
 .synthesia-container { border-radius: 8px; overflow: hidden; border: 2px solid #1c1f30; display: flex; flex-direction: column; }
 .synthesia-canvas { width: 100%; height: 350px; background-color: #444444; border-bottom: 2px solid #111; display: block; }
 
-/* Tastiera Reale e Contenitori (Risolto bug di collasso Flexbox con flex-shrink: 0) */
 .keyboard { display: flex; position: relative; height: 210px; background: #000; padding-bottom: 4px; width: 100%; overflow: hidden; }
 .white-keys-container { display: flex; width: 100%; height: 100%; flex-shrink: 0; }
 .black-keys-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -68,60 +67,24 @@ button.stop-btn { background-color: var(--accent-sad); color: white; border: non
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
 .modal-content { background: var(--card-bg); width: 95%; max-width: 1200px; border-radius: 10px; border: 1px solid #44475a; padding: 25px; display: flex; flex-direction: column; gap: 15px;}
 
-/* TASTIERA MODAL IDENTICA ALLA PRINCIPALE (Usa le stesse classi .keyboard) */
 .sampler-keyboard-wrap { position: relative; width: 100%; height: 210px; overflow: hidden; border: 2px solid #44475a; border-radius: 6px; margin-top: 15px; }
 
-/* SOVRASCRITTURE MODALITA' SAMPLER (.sampler-mode) */
-/* Nessuna alterazione estetica: i colori base rimangono identici a quelli classici */
-.keyboard.sampler-mode .key-white {
-    background: #ffffff;
-}
-.keyboard.sampler-mode .key-black {
-    background: #1e1e24;
-}
+.keyboard.sampler-mode .key-white { background: #ffffff; }
+.keyboard.sampler-mode .key-black { background: #1e1e24; }
+.keyboard.sampler-mode .s-inactive { pointer-events: none !important; cursor: default !important; }
+.keyboard.sampler-mode .s-active { pointer-events: auto !important; cursor: pointer !important; }
 
-/* Gestione interazioni: i 58 tasti non registrabili non rispondono al mouse */
-.keyboard.sampler-mode .s-inactive {
-    pointer-events: none !important;
-    cursor: default !important;
-}
+.keyboard.sampler-mode .key-white.s-active:hover { background: #ffb86c !important; }
+.keyboard.sampler-mode .key-black.s-active:hover { background: #ffb86c !important; border-color: #ffb86c !important; }
 
-/* I 30 tasti abilitati rispondono al mouse */
-.keyboard.sampler-mode .s-active {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
+.keyboard.sampler-mode .key-white.s-selected, .keyboard.sampler-mode .key-black.s-selected { background: #ff79c6 !important; }
+.keyboard.sampler-mode .key-white.s-recorded, .keyboard.sampler-mode .key-black.s-recorded { background: #50fa7b !important; color: #000000 !important; }
 
-/* EFFETTO HOVER: si illuminano SOLO le 30 note attivate quando ci passi sopra */
-.keyboard.sampler-mode .key-white.s-active:hover {
-    background: #ffb86c !important; /* Si illumina di arancione chiaro */
-}
-.keyboard.sampler-mode .key-black.s-active:hover {
-    background: #ffb86c !important; /* Si illumina di arancione chiaro */
-    border-color: #ffb86c !important;
-}
-
-/* Stati di Selezione e Registrazione */
-.keyboard.sampler-mode .key-white.s-selected,
-.keyboard.sampler-mode .key-black.s-selected {
-    background: #ff79c6 !important; /* Rosa quando selezionato */
-}
-
-.keyboard.sampler-mode .key-white.s-recorded,
-.keyboard.sampler-mode .key-black.s-recorded {
-    background: #50fa7b !important; /* Verde quando registrato */
-    color: #000000 !important;
-}
-
-/* Etichette dei Tasti Attivi (solo la lettera) */
 .s-label { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000; pointer-events: none; }
 .key-black .s-label { color: #fff; bottom: 10px; font-size: 9px; }
 .key-black.s-recorded .s-label { color: #000000; }
 
-@media (max-width: 1000px) {
-    .s-label { font-size: 8px; }
-    .key-black .s-label { font-size: 7px; }
-}
+@media (max-width: 1000px) { .s-label { font-size: 8px; } .key-black .s-label { font-size: 7px; } }
 
 .sampler-action-panel { display: none; background: #212435; padding: 20px; border-radius: 6px; border: 1px solid #44475a; text-align: center;}
 .sampler-action-panel h3 { margin-top: 0; color: #ffb86c; }
@@ -131,17 +94,18 @@ button.stop-btn { background-color: var(--accent-sad); color: white; border: non
 .recording-pulse { animation: pulse 1s infinite; background: #ff5555 !important; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 85, 85, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0); } }
 
-/* [MOD] Colori Uniformi per mano destra e sinistra */
-.key-white.active-chord, .key-black.active-chord {
-    background-color: #c77df3 !important;
-    /* Ombra bianca solo verso l'interno, simula il LED ma non esce dai bordi */
-    box-shadow: inset 0 -15px 20px rgba(255, 255, 255, 0.4) !important;
-    border: 1px solid #d49cfa !important;
+.key-white.active-chord, .key-black.active-chord { background-color: #c77df3 !important; box-shadow: inset 0 -15px 20px rgba(255, 255, 255, 0.4) !important; border: 1px solid #d49cfa !important; }
+.key-white.active-melody, .key-black.active-melody { background-color: #50fa7b !important; box-shadow: inset 0 -15px 20px rgba(255, 255, 255, 0.4) !important; border: 1px solid #73fc96 !important; }
+
+/* Stile pulsazione fase di attesa suono del microfono */
+.waiting-pulse { 
+    animation: waitingPulse 1.5s infinite; 
+    background: #ffb86c !important; 
+    color: #000000 !important; 
 }
 
-.key-white.active-melody, .key-black.active-melody {
-    background-color: #50fa7b !important;
-    /* Ombra bianca solo verso l'interno, simula il LED ma non esce dai bordi */
-    box-shadow: inset 0 -15px 20px rgba(255, 255, 255, 0.4) !important;
-    border: 1px solid #73fc96 !important;
+@keyframes waitingPulse { 
+    0% { box-shadow: 0 0 0 0 rgba(255, 184, 108, 0.7); } 
+    70% { box-shadow: 0 0 0 15px rgba(255, 184, 108, 0); } 
+    100% { box-shadow: 0 0 0 0 rgba(255, 184, 108, 0); } 
 }

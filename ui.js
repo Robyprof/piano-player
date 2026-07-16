@@ -95,7 +95,7 @@ window.selectSamplerNote = function(midi, name) {
         const oldKey = document.getElementById(`s-key-${currentSelectedSamplerNote.midi}`);
         if (oldKey) oldKey.classList.remove('s-selected');
     }
-    window.currentSelectedSamplerNote = { midi, name }; // Global in audio.js
+    window.currentSelectedSamplerNote = { midi, name }; 
     const newKey = document.getElementById(`s-key-${midi}`);
     if (newKey) newKey.classList.add('s-selected');
 
@@ -289,4 +289,89 @@ window.importSongFromJSON = function(songData) {
     currentTrebleNotes = songData.right_hand || songData.melody || [];
     currentBassNotes = songData.left_hand || [];
     
-  
+    if (songData.chords && currentBassNotes.length === 0) {
+        let currBeat = 0;
+        songData.chords.forEach(chord => {
+            chord.notes.forEach(n => currentBassNotes.push({ note: n, beat: currBeat, duration: chord.beats }));
+            currBeat += chord.beats;
+        });
+    }
+
+    playbackTimeline = []; let maxBeat = 0;
+    currentTrebleNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'melody', volume: item.velocity ? item.velocity/127 : 0.8 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
+    currentBassNotes.forEach(item => { playbackTimeline.push({ beat: item.beat, midi: item.note, durationBeats: item.duration, type: 'chord', volume: item.velocity ? item.velocity/127 : 0.7 }); if (item.beat + item.duration > maxBeat) maxBeat = item.beat + item.duration; });
+    playbackTimeline.sort((a, b) => a.beat - b.beat);
+    window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
+    totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
+
+    window.renderScrollingStaff(0);
+};
+
+window.playComposition = function(userInitiated = true) {
+    if (userInitiated !== false) window.isPlaylistMode = false;
+    
+    window.stopPlayback(false); 
+    window.importSongFromJSON(window.loadedSong);
+    
+    const btn = document.getElementById('mainPlayBtn');
+    if (btn) { btn.innerHTML = '⏸️ PAUSA'; btn.classList.add('playing'); }
+
+    playStartTime = audioCtx.currentTime + 0.10; isPlaying = true; lastScheduledBeat = 0; scheduledNotes = []; 
+    schedulerWorker.postMessage('start');
+    requestAnimationFrame(animateProgress);
+};
+
+function animateProgress() {
+    if (!isPlaying || !audioCtx) return;
+    const now = audioCtx.currentTime; const elapsed = now - playStartTime;
+    window.renderSynthesia(now, elapsed);
+
+    const bpm = parseFloat(document.getElementById('bpmSlider').value);
+    window.renderScrollingStaff(Math.max(0, (elapsed - 0.08) / (60 / bpm)));
+
+    if (elapsed >= totalDurationSec) { 
+        window.stopPlayback(false); 
+        if (window.isPlaylistMode && window.playNextInPlaylist) {
+            setTimeout(() => window.playNextInPlaylist(), 1000);
+        }
+        return; 
+    }
+    
+    const bar = document.getElementById('progressBar');
+    if (bar) bar.style.width = `${(elapsed / totalDurationSec) * 100}%`;
+    
+    const activeNotes = scheduledNotes.filter(n => now >= n.start && now < n.end);
+    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => {
+        if(!k.classList.contains('manual-active')) {
+            const midi = parseInt(k.dataset.midi);
+            const activeNote = activeNotes.find(n => n.midi === midi);
+            k.classList.remove('active-chord', 'active-melody');
+            if (activeNote) k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
+        }
+    });
+    progressAnimationId = requestAnimationFrame(animateProgress);
+}
+
+window.stopPlayback = function(userInitiated = true) {
+    if (userInitiated !== false) window.isPlaylistMode = false;
+    
+    const btn = document.getElementById('mainPlayBtn');
+    if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
+
+    activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
+    activeNodes = []; scheduledNotes = []; isPlaying = false; 
+    if (schedulerWorker) schedulerWorker.postMessage('stop');
+    cancelAnimationFrame(progressAnimationId);
+    
+    const bar = document.getElementById('progressBar');
+    if (bar) bar.style.width = '0%';
+    
+    document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
+    
+    window.renderSynthesia(0, 0);
+    window.renderScrollingStaff(0);
+};
+
+window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; };
+
+// --- FINE DEL FILE ---

@@ -40,6 +40,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = evt => {
                 try { 
+                    window.isPlaylistMode = false; // Ferma la riproduzione automatica in caso di upload manuale
                     window.loadedSong = JSON.parse(evt.target.result);
                     window.importSongFromJSON(window.loadedSong);
                     alert("File Locale Caricato! Vai su 'Suona Spartito' per vederlo, o archivialo nel Cloud tramite il riquadro sottostante.");
@@ -49,3 +50,73 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// [HOOK: PLAYLIST_LOGIC]
+window.isPlaylistMode = false;
+window.playlistAuthor = null;
+window.playlistSongKeys = [];
+window.playlistIndex = 0;
+
+window.startAuthorPlaylist = async function() {
+    if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const authorKey = document.getElementById('authorSelect').value;
+    if (!authorKey || !window.firebaseDatabase[authorKey]) return alert("Seleziona una raccolta!");
+    
+    const songKeys = Object.keys(window.firebaseDatabase[authorKey]).filter(k => k !== '_authorNotes');
+    if (songKeys.length === 0) return alert("La raccolta è vuota!");
+
+    window.isPlaylistMode = true;
+    window.playlistAuthor = authorKey;
+    window.playlistSongKeys = songKeys;
+    window.playlistIndex = 0;
+    
+    // Passa alla tab Play (indice 2)
+    const tabs = document.querySelectorAll('.tab-btn');
+    if (tabs.length > 2) window.switchTab('tab-play', tabs[2]);
+
+    await window.loadAndPlayPlaylistSong();
+};
+
+window.loadAndPlayPlaylistSong = async function() {
+    if (!window.isPlaylistMode) return;
+    
+    const authorKey = window.playlistAuthor;
+    const songKey = window.playlistSongKeys[window.playlistIndex];
+    
+    document.getElementById('authorSelect').value = authorKey;
+    if (window.onAuthorSelected) window.onAuthorSelected(authorKey, true);
+    document.getElementById('songSelect').value = songKey;
+
+    try {
+        const response = await fetch(`${window.FIREBASE_DB_URL}/scores/${authorKey}/${songKey}.json`);
+        const songData = await response.json();
+        if (songData) {
+            window.loadedSong = songData;
+            window.importSongFromJSON(songData);
+            
+            const songPanel = document.getElementById('songActionsPanel');
+            const notesArea = document.getElementById('songNotesArea');
+            if (songPanel) songPanel.style.display = 'block';
+            if (notesArea) notesArea.value = songData.notes || "";
+
+            setTimeout(() => { 
+                if (window.isPlaylistMode && window.playComposition) window.playComposition(false); 
+            }, 500);
+        } else {
+            window.playNextInPlaylist();
+        }
+    } catch(e) { 
+        console.error("Errore nel caricamento del brano della playlist:", e); 
+        window.playNextInPlaylist(); 
+    }
+};
+
+window.playNextInPlaylist = function() {
+    if (!window.isPlaylistMode) return;
+    window.playlistIndex++;
+    if (window.playlistIndex >= window.playlistSongKeys.length) {
+        window.playlistIndex = 0; // Riproduzione in Loop Continuo
+    }
+    window.loadAndPlayPlaylistSong();
+};

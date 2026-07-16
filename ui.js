@@ -322,7 +322,7 @@ function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY
 
 // [HOOK: PLAYBACK_AND_ANIMATION]
 window.importSongFromJSON = function(songData) {
-    window.stopPlayback(); 
+    window.stopPlayback(false); // Non resettare la playlist se importata dal sistema
     document.getElementById('stdName').innerText = songData.name || "Brano Caricato";
     document.getElementById('stdSub').innerText = songData.sub || "La tastiera reale a 88 tasti è attiva.";
     const bpm = songData.bpm || 105;
@@ -351,9 +351,13 @@ window.importSongFromJSON = function(songData) {
     window.renderScrollingStaff(0);
 };
 
-window.playComposition = async function() {
+window.playComposition = async function(userInitiated = true) {
+    if (userInitiated !== false) window.isPlaylistMode = false;
+    
     if (!audioCtx || Object.keys(pianoBuffers).length === 0) return alert("Attendi il caricamento dello strumento!");
-    if (audioCtx.state === 'suspended') audioCtx.resume(); window.stopPlayback(); 
+    if (audioCtx.state === 'suspended') audioCtx.resume(); 
+    window.stopPlayback(false); 
+    
     if (!window.loadedSong) return alert("Carica uno spartito prima di premere Play!");
 
     window.importSongFromJSON(window.loadedSong);
@@ -372,7 +376,13 @@ function animateProgress() {
     const bpm = parseFloat(document.getElementById('bpmSlider').value);
     window.renderScrollingStaff(Math.max(0, (elapsed - 0.08) / (60 / bpm)));
 
-    if (elapsed >= totalDurationSec) { window.stopPlayback(); return; }
+    if (elapsed >= totalDurationSec) { 
+        window.stopPlayback(false); 
+        if (window.isPlaylistMode && window.playNextInPlaylist) {
+            setTimeout(() => window.playNextInPlaylist(), 1000);
+        }
+        return; 
+    }
     document.getElementById('progressBar').style.width = `${(elapsed / totalDurationSec) * 100}%`;
     
     const activeNotes = scheduledNotes.filter(n => now >= n.start && now < n.end);
@@ -389,7 +399,9 @@ function animateProgress() {
     progressAnimationId = requestAnimationFrame(animateProgress);
 }
 
-window.stopPlayback = function() {
+window.stopPlayback = function(userInitiated = true) {
+    if (userInitiated !== false) window.isPlaylistMode = false;
+    
     activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
     activeNodes = []; scheduledNotes = []; isPlaying = false; 
     if (schedulerWorker) schedulerWorker.postMessage('stop');

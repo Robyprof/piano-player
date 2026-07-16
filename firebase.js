@@ -66,7 +66,9 @@ window.loadSongsListFromFirebase = async function() {
     } catch (e) { console.error(e); }
 };
 
-window.onAuthorSelected = function(authorKey) {
+window.onAuthorSelected = function(authorKey, isSystemAction = false) {
+    if (!isSystemAction) window.isPlaylistMode = false; // Interrompe la playlist automatica se cambiato a mano
+
     const songSelect = document.getElementById('songSelect');
     const authorPanel = document.getElementById('authorActionsPanel');
     const songPanel = document.getElementById('songActionsPanel');
@@ -99,6 +101,7 @@ window.onAuthorSelected = function(authorKey) {
 };
 
 window.onSongSelected = async function(songKey) {
+    window.isPlaylistMode = false; // Interrompe se viene selezionato manualmente
     const authorKey = document.getElementById('authorSelect').value;
     const songPanel = document.getElementById('songActionsPanel');
     const notesArea = document.getElementById('songNotesArea');

@@ -95,6 +95,7 @@
                             
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <button onclick="window.saveAuthorNotes()" style="background-color: #bd93f9; color: #000; border: none;">💾 Salva Note Raccolta</button>
+                                <button onclick="window.startAuthorPlaylist()" style="background-color: #f1fa8c; color: #000; border: none; font-weight: bold;">▶️ Riproduci Raccolta (Loop)</button>
                                 <div style="flex: 1;"></div> <!-- Distanziatore -->
                                 <button onclick="window.deleteCurrentAuthor()" style="background-color: #ff0000; color: white; border: none;">💣 Elimina Intera Raccolta</button>
                             </div>
@@ -152,8 +153,8 @@
                         </div>
                     </div>
                     <div class="btn-action-group">
-                        <button class="play-btn" onclick="window.playComposition()">▶️ Play</button>
-                        <button class="stop-btn" onclick="window.stopPlayback()">⏹️ Stop</button>
+                        <button class="play-btn" onclick="window.playComposition(true)">▶️ Play</button>
+                        <button class="stop-btn" onclick="window.stopPlayback(true)">⏹️ Stop</button>
                     </div>
                 </div>
             </div>

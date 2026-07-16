@@ -6,6 +6,7 @@
     <title>Piano Player (Pro Edition)</title>
     <!-- [HOOK: EXTERNAL_SCRIPTS] -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <link rel="stylesheet" href="style.css?v=1783763368">
 </head>
 <body>
@@ -184,6 +185,18 @@
 
             <div class="sampler-action-panel" id="samplerActionPanel">
                 <h3 id="samplerSelectedNoteLabel">Seleziona una nota dalla tastiera</h3>
+                <div style="margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <label for="samplerMicSelect" style="color: #a4b3c6; font-size: 0.95rem;">Scegli Microfono:</label>
+                    <select id="samplerMicSelect" class="db-select" style="max-width: 320px;"></select>
+                </div>
+                
+                <!-- Riga di Riproduzione & Riascolto Campione -->
+                <div id="samplerPlaybackRow" style="display: none; background: #191b28; border: 1px solid #44475a; border-radius: 8px; padding: 15px; margin-bottom: 15px; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <span style="color: #50fa7b; font-weight: bold; font-size: 1.1rem;" id="samplerPlaybackNoteLabel">Nota selezionata: --</span>
+                    <button id="btn-play-recorded" class="play-btn" style="background: #bd93f9; color: #000; border: none; font-weight: bold;" onclick="window.playAndLightSelectedSample()">▶️ Ascolta Registrazione 🔊</button>
+                    <span style="color: #6272a4; font-size: 0.85rem;">(Premi il tasto rosso sotto per ripetere)</span>
+                </div>
+
                 <div>
                     <button class="btn-rec" id="btn-rec-modal" onclick="window.toggleRecording()">🎤 Registra Microfono</button>
                     <button class="btn-upload">📂 Carica File Audio <input type="file" accept="audio/*" onchange="window.handleUploadNote(event)"></button>

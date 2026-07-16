@@ -100,14 +100,67 @@ window.selectSamplerNote = function(midi, name) {
     if (isMicRecording && window.toggleRecording) { window.toggleRecording(); }
     btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
 
+    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato
+    const playbackRow = document.getElementById('samplerPlaybackRow');
+    const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
+    if (playbackRow && playbackLabel) {
+        playbackLabel.innerText = `Nota selezionata: ${name} 🎵`;
+        if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
+            playbackRow.style.display = 'flex';
+        } else {
+            playbackRow.style.display = 'none';
+        }
+    }
+
+    // Illumina il tasto quando viene selezionato/riprodotto
+    if (newKey) {
+        newKey.classList.add('s-playing-light');
+        setTimeout(() => {
+            newKey.classList.remove('s-playing-light');
+        }, 1500);
+    }
+
     if (window.playRecordedSample) {
         window.playRecordedSample(name);
+    }
+};
+
+window.playAndLightSelectedSample = async function() {
+    if (!currentSelectedSamplerNote) return;
+    const name = currentSelectedSamplerNote.name;
+    const midi = currentSelectedSamplerNote.midi;
+    
+    if (window.playRecordedSample) {
+        window.playRecordedSample(name);
+    }
+    
+    // Feedback luminoso del tasto associato sulla tastiera del campionatore
+    const keyEl = document.getElementById(`s-key-${midi}`);
+    if (keyEl) {
+        keyEl.classList.add('s-playing-light');
+        setTimeout(() => {
+            keyEl.classList.remove('s-playing-light');
+        }, 1500);
     }
 };
 
 window.updateSamplerProgress = function() {
     const count = Object.keys(window.customInstrumentBuffers).length;
     document.getElementById('samplerProgressText').innerText = `Campioni caricati: ${count} / 30`;
+    
+    // Aggiorna lo stato visivo di riproduzione per la nota corrente
+    if (currentSelectedSamplerNote) {
+        const name = currentSelectedSamplerNote.name;
+        const playbackRow = document.getElementById('samplerPlaybackRow');
+        if (playbackRow) {
+            if (window.customInstrumentBuffers[name]) {
+                playbackRow.style.display = 'flex';
+            } else {
+                playbackRow.style.display = 'none';
+            }
+        }
+    }
+
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
@@ -154,7 +207,7 @@ window.renderSynthesia = function(now, elapsed) {
                 const map = canvasMap[m];
                 if (map && !map.isBlack) {
                     const x = map.xPct * synthCanvas.width;
-                    synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); synthCtx.stroke();
+                    synthCtx.beginPath(); synthCtx.moveTo(x, 0); synthCtx.lineTo(x, synthCanvas.height); stroke();
                 }
             }
         }

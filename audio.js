@@ -1,3 +1,4 @@
+// START OF FILE audio.js
 // [HOOK: AUDIO_GLOBALS]
 let audioCtx, masterGain;
 let activeNodes = [], scheduledNotes = [], playbackTimeline = [];
@@ -21,7 +22,6 @@ let analyserNode = null;
 let recordedPCMChunks = [];
 let isMicRecording = false;
 let isWaitingForTrigger = false;
-const triggerThreshold = 0.02; // Soglia per rilevare il suono del tasto
 let drawVisualId = null;
 
 // Funzione di caricamento sicuro e resiliente per lamejs (con fallback automatico multi-CDN)
@@ -267,8 +267,8 @@ window.clearWaveformCanvas = function() {
     ctx.strokeStyle = '#44475a';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, height_placeholder = canvas.height / 2);
-    ctx.lineTo(canvas.width, height_placeholder);
+    ctx.moveTo(0, canvas.height / 2);
+    ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
 };
 
@@ -346,6 +346,39 @@ window.toggleRecording = async function() {
             }
             float32PCM.set(chunk, offset);
             offset += chunk.length;
+        }
+        
+        // --- ANALIZZATORE E TAGLIO AUTOMATICO DEI TEMPI MORTI INIZIALI ---
+        let maxPeak = 0;
+        let maxPeakIndex = 0;
+        // 1. Troviamo il picco massimo assoluto del segnale (il transitorio del tasto)
+        for (let i = 0; i < float32PCM.length; i++) {
+            const val = Math.abs(float32PCM[i]);
+            if (val > maxPeak) {
+                maxPeak = val;
+                maxPeakIndex = i;
+            }
+        }
+        
+        let startCutIndex = 0;
+        if (maxPeak > 0.02) {
+            // 2. Scansioniamo all'indietro a partire dal picco per trovare l'inizio reale dell'attacco della nota
+            // Impostiamo la soglia d'attacco al 5% dell'altezza del picco massimo rilevato
+            const startThreshold = maxPeak * 0.05;
+            for (let i = maxPeakIndex; i >= 0; i--) {
+                if (Math.abs(float32PCM[i]) < startThreshold) {
+                    startCutIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // 3. Se c'è un tempo morto o disturbo iniziale da eliminare, trasliamo il segnale a sinistra
+        if (startCutIndex > 0) {
+            let trimmedFloat32PCM = new Float32Array(totalTargetLength); // Inizializzato a 0 (silenzio in coda)
+            trimmedFloat32PCM.set(float32PCM.subarray(startCutIndex), 0);
+            float32PCM = trimmedFloat32PCM;
+            console.log("Tagliati automatica mente " + (startCutIndex / sampleRate).toFixed(3) + " secondi di tempo morto iniziale.");
         }
         
         // --- 1. APPLICAZIONE DEL NOISE GATE IN POST-PROCESSING (Filtro antirumore digitale) ---
@@ -444,12 +477,17 @@ window.toggleRecording = async function() {
                     if (val > maxVal) maxVal = val;
                 }
                 
-                if (maxVal > triggerThreshold) {
+                // Rilevamento dinamico del trigger basato sullo slider dell'utente
+                const triggerSlider = document.getElementById('samplerThresholdSlider');
+                const activeThreshold = triggerSlider ? parseFloat(triggerSlider.value) : 0.05;
+                
+                if (maxVal > activeThreshold) {
                     isWaitingForTrigger = false;
                     isMicRecording = true;
                     
                     const durationLimit = parseInt(document.getElementById('samplerDurationSlider').value, 10) || 25;
                     
+                    // Modifica asincrona sicura per il thread grafico principale
                     setTimeout(() => {
                         btn.classList.remove('waiting-pulse');
                         btn.classList.add('recording-pulse');
@@ -462,6 +500,7 @@ window.toggleRecording = async function() {
                         }
                     }, 0);
                     
+                    // Avvia l'aggiornamento visivo del timer decimale a video
                     let recordStartTime = Date.now();
                     timerInterval = setInterval(() => {
                         if (!isMicRecording) {
@@ -476,6 +515,7 @@ window.toggleRecording = async function() {
                         }
                     }, 100);
                     
+                    // Imposta lo stop automatico all'esatto valore limitatore impostato dall'utente
                     recordingTimeout = setTimeout(() => {
                         if (isMicRecording) {
                             window.toggleRecording(); 
@@ -543,3 +583,4 @@ window.playRecordedSample = async function(noteName) {
         console.error("Errore durante la riproduzione del campione registrato:", e);
     }
 };
+// END OF FILE audio.js

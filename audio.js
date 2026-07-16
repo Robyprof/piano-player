@@ -251,7 +251,7 @@ window.toggleRecording = async function() {
             for (let i = 0; i < int16PCM.length; i += 1152) {
                 const chunk = int16PCM.subarray(i, i + 1152);
                 const mp3buf = mp3encoder.encodeBuffer(chunk);
-                if (mp3buf.length > 0) mp3Data.push(mp3buf);
+                if (mp3buf.length > 0) { mp3Data.push(mp3buf); }
             }
             const mp3buf = mp3encoder.flush(); if (mp3buf.length > 0) mp3Data.push(mp3buf);
             
@@ -320,7 +320,7 @@ window.toggleRecording = async function() {
 };
 
 window.handleUploadNote = function(event) {
-    if (!window.currentSelectedSamplerNote) return alert("Seleziona una nota!");
+    if (!window.currentSelectedSamplerNote) return alert("Seleziona prima una nota!");
     const file = event.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = e => { window.customInstrumentBuffers[window.currentSelectedSamplerNote.name] = new Blob([e.target.result], { type: file.type }); window.updateSamplerProgress(); };
@@ -336,9 +336,19 @@ window.exportInstrumentZip = function() {
     });
 };
 
+// [RIPRISTINATA LOGICA ORIGINALE CON SOUND FALLBACK PRIMA DELLA REGISTRAZIONE]
 window.playRecordedSample = async function(noteName) {
     const blob = window.customInstrumentBuffers[noteName];
-    if (!blob) return;
+    if (!blob) {
+        // Fallback: Esegue il suono standard del piano se la nota non è ancora stata registrata
+        const midi = window.activeMidi30[window.noteNames30.indexOf(noteName)];
+        if (typeof pianoBuffers !== 'undefined' && pianoBuffers[midi]) {
+            window.playSampledNote(midi, audioCtx.currentTime, 1.5, 1.0, 'manual');
+        } else {
+            console.log("Audio di default non ancora caricato per midi:", midi);
+        }
+        return;
+    }
     try {
         const audio = new Audio(URL.createObjectURL(blob)); audio.play();
     } catch (e) { console.error("Errore playback", e); }

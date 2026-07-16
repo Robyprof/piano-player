@@ -1,6 +1,4 @@
-// ==========================================
 // START OF FILE ui.js
-// ==========================================
 
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
@@ -40,7 +38,7 @@ window.buildMainKeyboard = function() {
 };
 
 // ==========================================
-// 2. LOGICA ORIGINALE DEL CAMPIONATORE (COLORI CORRETTI)
+// 2. LOGICA ORIGINALE DEL CAMPIONATORE (COLORAZIONE ROSSA RIPRISTINATA)
 // ==========================================
 window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
@@ -64,7 +62,7 @@ window.renderSamplerKeyboard = function() {
         
         if (!isBlack) {
             keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            // COLORE STANDARD TASTI BIANCHI (Nessuna trasparenza)
+            // Base bianca solida per i tasti attivi, grigio chiaro per quelli disattivati (senza opacità)
             keyDiv.style.background = isActive30 ? "#ffffff" : "#d1d5db";
             keyDiv.style.opacity = "1"; 
             keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
@@ -73,7 +71,7 @@ window.renderSamplerKeyboard = function() {
             document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
-            // COLORE STANDARD TASTI NERI (Nessuna trasparenza)
+            // Base nera solida per i tasti attivi, grigio scuro per quelli disattivati (senza opacità)
             keyDiv.style.background = isActive30 ? "#111111" : "#374151";
             keyDiv.style.opacity = "1"; 
             keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
@@ -106,20 +104,21 @@ window.closeSamplerModal = function() {
 };
 
 window.selectSamplerNote = function(midi, name) {
-    // SBLOCCO POLICY BROWSER: Risveglia l'audio al click
     if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
 
     if (typeof window.currentSelectedSamplerNote !== 'undefined' && window.currentSelectedSamplerNote) {
         const oldKey = document.getElementById(`s-key-${window.currentSelectedSamplerNote.midi}`);
-        if (oldKey) oldKey.classList.remove('s-selected');
+        if (oldKey) {
+            oldKey.classList.remove('s-selected');
+            oldKey.style.background = ""; // Pulisce l'override manuale
+        }
     }
     
     window.currentSelectedSamplerNote = { midi, name };
     const newKey = document.getElementById(`s-key-${midi}`);
     if (newKey) {
         newKey.classList.add('s-selected');
-        // Forza background color originale rosa acceso al click
-        newKey.style.background = "#ff79c6"; 
+        newKey.style.background = "#ff3b30"; // Forza colore ROSSO di selezione immediata
     }
 
     const label = document.getElementById('samplerSelectedNoteLabel');
@@ -133,7 +132,7 @@ window.selectSamplerNote = function(midi, name) {
         btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
     }
 
-    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato
+    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato (Logica Originale)
     const playbackRow = document.getElementById('samplerPlaybackRow');
     const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
     if (playbackRow && playbackLabel) {
@@ -145,15 +144,16 @@ window.selectSamplerNote = function(midi, name) {
         }
     }
 
-    // Illumina il tasto quando viene selezionato/riprodotto
+    // Illumina temporaneamente con effetto ombra, ma ricolora di ROSSO permanente
     if (newKey) {
-        newKey.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #bd93f9";
+        newKey.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #ff3b30";
         setTimeout(() => {
             newKey.style.boxShadow = "";
-            newKey.style.background = ""; // Ripristina colore in base a updateSamplerProgress
-            window.updateSamplerProgress(); // Forza l'aggiornamento colore per sicurezza
-        }, 1500);
+            window.updateSamplerProgress(); // Riassegna i colori definitivi
+        }, 1000);
     }
+
+    window.updateSamplerProgress(); // Aggiorna immediatamente gli stati visivi di tutti i tasti
 
     if (window.playRecordedSample) {
         window.playRecordedSample(name);
@@ -169,10 +169,9 @@ window.playAndLightSelectedSample = async function() {
         window.playRecordedSample(name);
     }
     
-    // Feedback luminoso del tasto associato sulla tastiera del campionatore
     const keyEl = document.getElementById(`s-key-${midi}`);
     if (keyEl) {
-        keyEl.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #bd93f9";
+        keyEl.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #ff3b30";
         setTimeout(() => { keyEl.style.boxShadow = ""; }, 1500);
     }
 };
@@ -182,7 +181,6 @@ window.updateSamplerProgress = function() {
     const progressEl = document.getElementById('samplerProgressText');
     if (progressEl) progressEl.innerText = `Campioni caricati: ${count} / 30`;
     
-    // Aggiorna lo stato visivo di riproduzione per la nota corrente
     if (typeof window.currentSelectedSamplerNote !== 'undefined' && window.currentSelectedSamplerNote) {
         const name = window.currentSelectedSamplerNote.name;
         const playbackRow = document.getElementById('samplerPlaybackRow');
@@ -195,18 +193,24 @@ window.updateSamplerProgress = function() {
         }
     }
 
-    // Ricolora le note a seconda che siano registrate o no
+    // Mappa visiva: Tasti selezionati o registrati rimangono colorati di ROSSO
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
         const isBlack = [1,3,6,8,10].includes(m % 12);
         
         if (keyEl) {
-            if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
-                keyEl.style.background = "#50fa7b"; // Verde brillante per campioni salvati
+            const isSelected = window.currentSelectedSamplerNote && window.currentSelectedSamplerNote.midi === m;
+            const isRecorded = window.customInstrumentBuffers && window.customInstrumentBuffers[name];
+            
+            if (isSelected || isRecorded) {
+                keyEl.style.background = "#ff3b30"; // Rosso vivo
+                keyEl.classList.add('s-recorded');
+                keyEl.classList.add('s-selected');
             } else {
-                // Ritorna al colore standard se non registrato
                 keyEl.style.background = isBlack ? "#111111" : "#ffffff";
+                keyEl.classList.remove('s-recorded');
+                keyEl.classList.remove('s-selected');
             }
         }
     }
@@ -378,14 +382,12 @@ window.importSongFromJSON = function(songData) {
     window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
 
-    // Aggiorna lo spartito istantaneamente
     window.renderScrollingStaff(0);
 };
 
 window.playComposition = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
     
-    // Controlla che i buffer piano siano caricati
     if (typeof pianoBuffers !== 'undefined' && Object.keys(pianoBuffers).length === 0) {
         return alert("Attendi un istante, strumento in caricamento! 🎹");
     }
@@ -454,7 +456,6 @@ window.stopPlayback = function(userInitiated = true) {
     
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
     
-    // Ripristina grafiche a zero
     window.renderSynthesia(0, 0);
     window.renderScrollingStaff(0);
 };

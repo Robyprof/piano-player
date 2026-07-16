@@ -1,98 +1,659 @@
+/* ==========================================================================
+   DAW STYLE STUDIO - STYLE SHEET COMPLETO
+   ========================================================================== */
+
 :root {
-    --bg-darkest: #07090e; --bg-dark: #10141e; --bg-card: #181c28; --border-color: #2b3145;
-    --text-main: #f8fafc; --text-muted: #94a3b8;
-    --accent-primary: #8b5cf6; --accent-melody: #10b981; --accent-chord: #a78bfa; 
-    --accent-gold: #f59e0b; --accent-danger: #ef4444;
+    /* Tavolozza Colori - Studio DAW Dark */
+    --bg-darkest: #07090e;
+    --bg-dark: #10141e;
+    --bg-card: #181c28;
+    --border-color: #2b3145;
+    
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    
+    /* Accenti Funzionali */
+    --accent-primary: #8b5cf6;     /* Viola Regale */
+    --accent-melody: #10b981;      /* Verde Smeraldo */
+    --accent-chord: #a78bfa;       /* Viola Chiaro */
+    --accent-gold: #f59e0b;        /* Oro/Ambra */
+    --accent-danger: #ef4444;      /* Rosso */
+    
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-family); background-color: var(--bg-darkest); color: var(--text-main); height: 100vh; overflow: hidden; }
+/* RESET E IMPOSTAZIONI DI BASE */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-/* LAYOUT PRINCIPALE */
-.app-layout { display: flex; height: 100vh; width: 100vw; }
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-darkest);
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
 
-/* SIDEBAR */
-.sidebar { width: 300px; background: var(--bg-card); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; z-index: 100; }
-.logo-area { font-size: 1.8rem; font-weight: 800; color: var(--accent-primary); margin-bottom: 30px; text-align: center; text-transform: uppercase; letter-spacing: 2px; }
-.sidebar-section { margin-bottom: 25px; }
-.sidebar-section h3 { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; }
+/* CONTAINER LAYOUT IN DIAGONALE (SIDEBAR + WORKSPACE) */
+.app-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
 
-/* INPUTS E BUTTONS */
-.db-select { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main); padding: 10px; border-radius: 6px; margin-bottom: 10px; outline: none; }
-.btn { padding: 10px 15px; border-radius: 6px; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; font-family: inherit; font-size: 0.9rem; display: inline-block; }
-.full-width { width: 100%; text-align: center; }
-.btn-primary { background: var(--accent-primary); color: #fff; }
-.btn-primary:hover { background: #7c3aed; }
-.btn-secondary { background: var(--bg-dark); border-color: var(--border-color); color: var(--text-main); }
-.btn-secondary:hover { border-color: var(--text-muted); }
-.btn-outline { background: transparent; border-color: var(--text-muted); color: var(--text-main); }
-.btn-outline:hover { background: rgba(255,255,255,0.05); }
-.audio-status-wrap { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
-#audioStatus { color: var(--accent-gold); font-weight: bold; }
+/* ==========================================================================
+   SIDEBAR (STRUMENTI E COMANDI LATERALI)
+   ========================================================================== */
+.sidebar {
+    width: 300px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    overflow-y: auto;
+    z-index: 100;
+}
 
-/* CHECKBOX INTERRUTTORI */
-.checkbox-container { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.9rem; margin-bottom: 8px; }
-.checkbox-container input { display: none; }
-.checkbox-custom { width: 18px; height: 18px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; position: relative; }
-.checkbox-container input:checked ~ .checkbox-custom { background: var(--accent-primary); border-color: var(--accent-primary); }
-.checkbox-custom:after { content: ""; position: absolute; display: none; left: 5px; top: 2px; width: 4px; height: 8px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.checkbox-container input:checked ~ .checkbox-custom:after { display: block; }
+.logo-area {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent-primary);
+    margin-bottom: 30px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
 
-/* WORKSPACE PRINCIPALE */
-.main-workspace { flex: 1; display: flex; flex-direction: column; position: relative; }
+.sidebar-section {
+    margin-bottom: 25px;
+}
 
-/* HEADER RIPRODUZIONE */
-.top-bar { height: 90px; background: rgba(16, 20, 30, 0.95); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); z-index: 10; }
-.track-info h2 { font-size: 1.3rem; color: var(--accent-melody); margin-bottom: 4px; font-weight: 800; }
-.track-info h3 { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; }
-.tempo-control { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.85rem; font-weight: bold; color: var(--text-muted); }
+.sidebar-section h3 {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
 
-/* IL GRANDE PULSANTE PLAY */
-.playback-controls { display: flex; align-items: center; gap: 20px; }
-.btn-icon { background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
-.btn-icon:hover { color: var(--text-main); }
-.main-play-btn { background: linear-gradient(135deg, var(--accent-melody), #059669); color: #000; font-size: 1.4rem; font-weight: 900; padding: 12px 40px; border-radius: 50px; border: none; cursor: pointer; box-shadow: 0 0 25px rgba(16, 185, 129, 0.4); transition: transform 0.1s, box-shadow 0.1s; letter-spacing: 1px; }
-.main-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 35px rgba(16, 185, 129, 0.6); }
-.main-play-btn.playing { background: linear-gradient(135deg, var(--accent-danger), #b91c1c); box-shadow: 0 0 25px rgba(239, 68, 68, 0.4); color: white; }
+/* SELECTS, INPUTS, BOTTONI IN SIDEBAR */
+.db-select {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    outline: none;
+    font-family: inherit;
+}
 
-/* STAGE VISIVO */
-.stage-container { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; background: #0b0d14; }
-.progress-bar-wrap { height: 4px; background: rgba(255,255,255,0.05); width: 100%; position: absolute; top: 0; left: 0; z-index: 15; }
-#progressBar { height: 100%; width: 0%; background: var(--accent-melody); box-shadow: 0 0 10px var(--accent-melody); transition: width 0.1s linear; }
-.synthesia-canvas { flex: 1; width: 100%; display: block; }
-.sheet-music-overlay { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% - 190px); background: #ffffff; z-index: 20; }
-#staffCanvas { width: 100%; height: 100%; display: block; }
+.db-select:focus {
+    border-color: var(--accent-primary);
+}
 
-/* TASTIERA */
-.keyboard-container { height: 190px; width: 100%; border-top: 2px solid #000; z-index: 30; }
-.keyboard { display: flex; position: relative; height: 100%; background: #000; width: 100%; user-select: none; }
-.white-keys-container { display: flex; width: 100%; height: 100%; }
-.black-keys-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-.key-white { flex: 1; background: linear-gradient(to bottom, #fff 0%, #e2e8f0 100%); border-right: 1px solid #111; border-radius: 0 0 4px 4px; position: relative; cursor: pointer; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-.key-black { position: absolute; background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%); width: 1.15%; height: 62%; z-index: 10; cursor: pointer; border-radius: 0 0 3px 3px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-.key-white.active-key { background: #cbd5e1 !important; }
-.key-black.active-key { background: #020617 !important; }
-.key-white.active-chord, .key-black.active-chord { background: linear-gradient(to bottom, #c084fc, var(--accent-chord)) !important; box-shadow: 0 0 15px rgba(167, 139, 250, 0.8) !important; border-color: #a78bfa !important; }
-.key-white.active-melody, .key-black.active-melody { background: linear-gradient(to bottom, #34d399, var(--accent-melody)) !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.8) !important; border-color: #34d399 !important; }
+.db-select:disabled {
+    opacity: 0.4;
+}
 
-/* MODALI & PANNELLI CLOUD */
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 1000; align-items: center; justify-content: center; }
-.modal-content { background: var(--bg-card); width: 95%; max-width: 1200px; border-radius: 12px; border: 1px solid var(--border-color); padding: 25px; display: flex; flex-direction: column; max-height: 90vh; overflow-y: auto; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px; }
-.panel { background: var(--bg-dark); padding: 15px; border-radius: 8px; border-left: 4px solid; }
+.btn {
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 0.9rem;
+    display: inline-block;
+}
+
+.full-width {
+    width: 100%;
+    text-align: center;
+}
+
+.btn-primary {
+    background: var(--accent-primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #7c3aed;
+}
+
+.btn-secondary {
+    background: var(--bg-dark);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+.btn-secondary:hover {
+    border-color: var(--text-muted);
+}
+
+.btn-outline {
+    background: transparent;
+    border-color: var(--text-muted);
+    color: var(--text-main);
+}
+
+.btn-outline:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.audio-status-wrap {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+#audioStatus {
+    color: var(--accent-gold);
+    font-weight: bold;
+}
+
+/* CHECKBOX PERSONALIZZATE (INTERRUTTORI CANALI) */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    user-select: none;
+}
+
+.checkbox-container input {
+    display: none;
+}
+
+.checkbox-custom {
+    width: 18px;
+    height: 18px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    position: relative;
+}
+
+.checkbox-container input:checked ~ .checkbox-custom {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.checkbox-custom:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.checkbox-container input:checked ~ .checkbox-custom:after {
+    display: block;
+}
+
+/* ==========================================================================
+   WORKSPACE PRINCIPALE (PLAYBACK CONSOLE)
+   ========================================================================== */
+.main-workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* BARRA DI CONTROLLO SUPERIORE (TOP BAR) */
+.top-bar {
+    height: 90px;
+    background: rgba(16, 20, 30, 0.95);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.track-info h2 {
+    font-size: 1.3rem;
+    color: var(--accent-melody);
+    margin-bottom: 4px;
+    font-weight: 800;
+}
+
+.track-info h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: color 0.2s;
+    outline: none;
+}
+
+.btn-icon:hover {
+    color: var(--text-main);
+}
+
+/* IL GRANDE PULSANTE PLAY STILE CONSOLE */
+.main-play-btn {
+    background: linear-gradient(135deg, var(--accent-melody), #059669);
+    color: #000;
+    font-size: 1.4rem;
+    font-weight: 900;
+    padding: 12px 40px;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 1px;
+    outline: none;
+}
+
+.main-play-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 35px rgba(16, 185, 129, 0.6);
+}
+
+.main-play-btn.playing {
+    background: linear-gradient(135deg, var(--accent-danger), #b91c1c);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+    color: white;
+}
+
+.tempo-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   STAGE CANVAS (SYNTHESIA + SPARTITO + TASTIERA)
+   ========================================================================== */
+.stage-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    background: #0b0d14;
+}
+
+/* BARRA DI PROGRESSO SOTTILE */
+.progress-bar-wrap {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 15;
+}
+
+#progressBar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent-melody);
+    box-shadow: 0 0 10px var(--accent-melody);
+    transition: width 0.1s linear;
+}
+
+.synthesia-canvas {
+    flex: 1;
+    width: 100%;
+    display: block;
+}
+
+/* OVERLAY SPARTITO POPUP */
+.sheet-music-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: calc(100% - 190px);
+    background: #ffffff;
+    z-index: 20;
+}
+
+#staffCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* ==========================================================================
+   TASTIERA DEL PIANOFORTE FISICA (DAW STYLE)
+   ========================================================================== */
+.keyboard-container {
+    height: 190px;
+    width: 100%;
+    border-top: 2px solid #000;
+    z-index: 30;
+}
+
+.keyboard {
+    display: flex;
+    position: relative;
+    height: 100%;
+    background: #000;
+    width: 100%;
+    user-select: none;
+}
+
+.white-keys-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+.black-keys-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.key-white {
+    flex: 1;
+    background: linear-gradient(to bottom, #fff 0%, #e2e8f0 100%);
+    border-right: 1px solid #111;
+    border-radius: 0 0 4px 4px;
+    position: relative;
+    cursor: pointer;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.key-black {
+    position: absolute;
+    background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
+    width: 1.15%;
+    height: 62%;
+    z-index: 10;
+    cursor: pointer;
+    border-radius: 0 0 3px 3px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* STATI ATTIVI MANUALI */
+.key-white.active-key {
+    background: #cbd5e1 !important;
+}
+
+.key-black.active-key {
+    background: #020617 !important;
+}
+
+/* NOTE SINCATE CON IL SEQUENCER */
+.key-white.active-chord, .key-black.active-chord {
+    background: linear-gradient(to bottom, #c084fc, var(--accent-chord)) !important;
+    box-shadow: 0 0 15px rgba(167, 139, 250, 0.8) !important;
+    border-color: #a78bfa !important;
+}
+
+.key-white.active-melody, .key-black.active-melody {
+    background: linear-gradient(to bottom, #34d399, var(--accent-melody)) !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.8) !important;
+    border-color: #34d399 !important;
+}
+
+/* ==========================================================================
+   MODALI, GESTIONE AVANZATA CLOUD E RECORDING PANEL
+   ========================================================================== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    width: 95%;
+    max-width: 1200px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.panel {
+    background: var(--bg-dark);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
 .border-gold { border-color: var(--accent-gold); }
 .border-purple { border-color: var(--accent-chord); }
 .border-green { border-color: var(--accent-melody); }
-.cloud-textarea { width: 100%; height: 100px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 6px; font-family: inherit; resize: vertical; outline: none; }
-.cloud-textarea:focus { border-color: var(--text-muted); }
-.sampler-keyboard-wrap { background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border-color); height: 180px; margin-bottom: 15px; }
+
+.cloud-textarea {
+    width: 100%;
+    height: 100px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    color: white;
+    padding: 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+}
+
+.cloud-textarea:focus {
+    border-color: var(--text-muted);
+}
+
+/* RECORDING MODAL INTERIOR */
+.sampler-keyboard-wrap {
+    background: var(--bg-dark);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    height: 180px;
+    margin-bottom: 15px;
+}
+
+.selected-note-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.sampler-grid-controls {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr auto;
+    gap: 20px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+.sampler-control-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.sampler-timer-wrap {
+    align-self: flex-end;
+    padding-bottom: 10px;
+}
+
+.sampler-timer {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent-danger);
+    font-family: monospace;
+}
+
+.btn-rec {
+    background-color: var(--accent-danger);
+    color: var(--text-main);
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-weight: 800;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+    transition: all 0.2s;
+}
+
+.btn-rec:hover {
+    background-color: #f87171;
+    transform: translateY(-1px);
+}
+
+.recording-pulse {
+    animation: recordingPulseEffect 1.2s infinite;
+    background-color: #b91c1c !important;
+}
+
+@keyframes recordingPulseEffect {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+    70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.waiting-pulse {
+    animation: waitingPulseEffect 1.2s infinite;
+    background-color: var(--accent-gold) !important;
+    color: var(--bg-darkest) !important;
+}
+
+@keyframes waitingPulseEffect {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+    70% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
 
 /* RANGE SLIDERS */
-input[type="range"] { -webkit-appearance: none; background: var(--bg-dark); height: 6px; border-radius: 10px; outline: none; border: 1px solid var(--border-color); width: 100%; }
-input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--text-main); cursor: pointer; transition: transform 0.1s; }
-input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--accent-melody); }
+input[type="range"] {
+    -webkit-appearance: none;
+    background: var(--bg-dark);
+    height: 6px;
+    border-radius: 10px;
+    outline: none;
+    border: 1px solid var(--border-color);
+    width: 100%;
+}
 
-/* Sovrascrive i gradienti DAW per la tastiera del campionatore */
-.keyboard.sampler-mode .key-white { background: #ffffff !important; }
-.keyboard.sampler-mode .key-black { background: #111111 !important; }
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text-main);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    background: var(--accent-melody);
+}
+
+/* ==========================================================================
+   REGOLE STRICT DI COLORAZIONE TASTIERA CAMPIONATORE (COLORI REALI)
+   ========================================================================== */
+
+/* Sovrascrive i gradienti DAW per la tastiera del campionatore mantenendo i colori standard nitidi */
+.keyboard.sampler-mode .key-white:not(.s-recorded):not(.s-selected) { 
+    background: #ffffff !important; 
+    opacity: 1 !important; 
+}
+.keyboard.sampler-mode .key-black:not(.s-recorded):not(.s-selected) { 
+    background: #111111 !important; 
+    opacity: 1 !important; 
+}
+
+/* Quando un tasto è selezionato per registrare o è stato registrato con successo, forza il ROSSO */
+.keyboard.sampler-mode .key-white.s-recorded, 
+.keyboard.sampler-mode .key-white.s-selected,
+.keyboard.sampler-mode .key-black.s-recorded, 
+.keyboard.sampler-mode .key-black.s-selected { 
+    background: #ff3b30 !important; 
+    opacity: 1 !important;
+}
+
+/* Regola l'opacità dei soli tasti inattivi della tastiera del campionatore senza far trasparire lo sfondo scuro */
+.keyboard.sampler-mode .key-white.s-inactive { 
+    background: #d1d5db !important; 
+    opacity: 1 !important; 
+}
+.keyboard.sampler-mode .key-black.s-inactive { 
+    background: #374151 !important; 
+    opacity: 1 !important; 
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (MEDIA QUERIES)
+   ========================================================================== */
+@media (max-width: 1024px) {
+    .app-layout {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100vw;
+        height: auto;
+        max-height: 40vh;
+    }
+    .top-bar {
+        padding: 0 20px;
+    }
+    .sampler-grid-controls {
+        grid-template-columns: 1fr;
+    }
+}

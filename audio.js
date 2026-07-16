@@ -20,6 +20,47 @@ let isMicRecording = false;
 let isWaitingForTrigger = false;
 const triggerThreshold = 0.02; // Soglia minima per rilevare il suono netto del pianoforte
 
+// Funzione di caricamento sicuro e resiliente per lamejs (con fallback automatico multi-CDN)
+window.loadLamejs = function() {
+    return new Promise((resolve, reject) => {
+        if (window.lamejs) {
+            resolve(window.lamejs);
+            return;
+        }
+        // Sorgenti CDN alternative ordinate per affidabilità
+        const urls = [
+            "https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js",
+            "https://unpkg.com/lamejs@1.2.1/lame.min.js",
+            "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"
+        ];
+        let index = 0;
+        function tryNext() {
+            if (index >= urls.length) {
+                reject(new Error("Errore: Impossibile caricare la libreria lamejs da nessuna delle sorgenti CDN. Verifica la tua connessione internet."));
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = urls[index];
+            script.onload = () => {
+                if (window.lamejs) {
+                    console.log("lamejs caricato correttamente da: " + urls[index]);
+                    resolve(window.lamejs);
+                } else {
+                    index++;
+                    tryNext();
+                }
+            };
+            script.onerror = () => {
+                console.warn("Failing to load lamejs from: " + urls[index] + " - Provando la sorgente successiva...");
+                index++;
+                tryNext();
+            };
+            document.head.appendChild(script);
+        }
+        tryNext();
+    });
+};
+
 // [HOOK: AUDIO_WORKER]
 window.initSchedulerWorker = function() {
     const workerCode = `
@@ -142,6 +183,14 @@ window.populateMicDropdown = async function() {
 
 window.toggleRecording = async function() {
     if (!currentSelectedSamplerNote) return alert("Seleziona prima una nota!");
+    
+    // Assicura il caricamento corretto di lamejs prima della registrazione
+    try {
+        await window.loadLamejs();
+    } catch (err) {
+        return alert(err.message);
+    }
+
     const noteName = currentSelectedSamplerNote.name;
     const btn = document.getElementById('btn-rec-modal');
     
@@ -170,7 +219,7 @@ window.toggleRecording = async function() {
         
         // Se la registrazione è stata chiusa manualmente prima del trigger, non salviamo dati vuoti
         if (!wasRecording || recordedPCMChunks.length === 0) {
-            print("Registrazione annullata prima del rilevamento del suono.");
+            console.log("Registrazione annullata prima del rilevamento del suono.");
             return;
         }
         

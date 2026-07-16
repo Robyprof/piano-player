@@ -38,7 +38,7 @@ window.buildMainKeyboard = function() {
 };
 
 // ==========================================
-// 2. LOGICA ORIGINALE DEL CAMPIONATORE (COLORAZIONE ROSSA RIPRISTINATA)
+// 2. LOGICA CAMPIONATORE
 // ==========================================
 window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
@@ -62,7 +62,6 @@ window.renderSamplerKeyboard = function() {
         
         if (!isBlack) {
             keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            // Base bianca solida per i tasti attivi, grigio chiaro per quelli disattivati (senza opacità)
             keyDiv.style.background = isActive30 ? "#ffffff" : "#d1d5db";
             keyDiv.style.opacity = "1"; 
             keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
@@ -71,7 +70,6 @@ window.renderSamplerKeyboard = function() {
             document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
-            // Base nera solida per i tasti attivi, grigio scuro per quelli disattivati (senza opacità)
             keyDiv.style.background = isActive30 ? "#111111" : "#374151";
             keyDiv.style.opacity = "1"; 
             keyDiv.style.pointerEvents = isActive30 ? "auto" : "none";
@@ -110,7 +108,7 @@ window.selectSamplerNote = function(midi, name) {
         const oldKey = document.getElementById(`s-key-${window.currentSelectedSamplerNote.midi}`);
         if (oldKey) {
             oldKey.classList.remove('s-selected');
-            oldKey.style.background = ""; // Pulisce l'override manuale
+            oldKey.style.background = ""; 
         }
     }
     
@@ -118,7 +116,7 @@ window.selectSamplerNote = function(midi, name) {
     const newKey = document.getElementById(`s-key-${midi}`);
     if (newKey) {
         newKey.classList.add('s-selected');
-        newKey.style.background = "#ff3b30"; // Forza colore ROSSO di selezione immediata
+        newKey.style.background = "#ff3b30"; 
     }
 
     const label = document.getElementById('samplerSelectedNoteLabel');
@@ -132,7 +130,6 @@ window.selectSamplerNote = function(midi, name) {
         btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
     }
 
-    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato (Logica Originale)
     const playbackRow = document.getElementById('samplerPlaybackRow');
     const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
     if (playbackRow && playbackLabel) {
@@ -144,16 +141,15 @@ window.selectSamplerNote = function(midi, name) {
         }
     }
 
-    // Illumina temporaneamente con effetto ombra, ma ricolora di ROSSO permanente
     if (newKey) {
         newKey.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #ff3b30";
         setTimeout(() => {
             newKey.style.boxShadow = "";
-            window.updateSamplerProgress(); // Riassegna i colori definitivi
+            window.updateSamplerProgress(); 
         }, 1000);
     }
 
-    window.updateSamplerProgress(); // Aggiorna immediatamente gli stati visivi di tutti i tasti
+    window.updateSamplerProgress(); 
 
     if (window.playRecordedSample) {
         window.playRecordedSample(name);
@@ -165,9 +161,7 @@ window.playAndLightSelectedSample = async function() {
     const name = window.currentSelectedSamplerNote.name;
     const midi = window.currentSelectedSamplerNote.midi;
     
-    if (window.playRecordedSample) {
-        window.playRecordedSample(name);
-    }
+    if (window.playRecordedSample) window.playRecordedSample(name);
     
     const keyEl = document.getElementById(`s-key-${midi}`);
     if (keyEl) {
@@ -193,7 +187,6 @@ window.updateSamplerProgress = function() {
         }
     }
 
-    // Mappa visiva: Tasti selezionati o registrati rimangono colorati di ROSSO
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
@@ -204,7 +197,7 @@ window.updateSamplerProgress = function() {
             const isRecorded = window.customInstrumentBuffers && window.customInstrumentBuffers[name];
             
             if (isSelected || isRecorded) {
-                keyEl.style.background = "#ff3b30"; // Rosso vivo
+                keyEl.style.background = "#ff3b30"; 
                 keyEl.classList.add('s-recorded');
                 keyEl.classList.add('s-selected');
             } else {
@@ -359,6 +352,10 @@ function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY
 // ==========================================
 // 4. GESTIONE PLAYBACK E SINCRONIZZAZIONE
 // ==========================================
+window.currentPauseTime = 0;
+window.isSeeking = false;
+let wasPlayingBeforeSeek = false;
+
 window.importSongFromJSON = function(songData) {
     window.stopPlayback(false); 
     const bpm = songData.bpm || 105;
@@ -385,21 +382,42 @@ window.importSongFromJSON = function(songData) {
     window.renderScrollingStaff(0);
 };
 
-window.playComposition = function(userInitiated = true) {
+window.playComposition = function(userInitiated = true, startOffsetSec = 0) {
     if (userInitiated !== false) window.isPlaylistMode = false;
     
     if (typeof pianoBuffers !== 'undefined' && Object.keys(pianoBuffers).length === 0) {
         return alert("Attendi un istante, strumento in caricamento! 🎹");
     }
     
-    window.stopPlayback(false); 
-    window.importSongFromJSON(window.loadedSong);
+    window.stopPlayback(false, true); 
+    
+    if (startOffsetSec === 0) {
+        window.importSongFromJSON(window.loadedSong);
+        window.currentPauseTime = 0;
+    } else {
+        // Se riprendiamo dalla pausa, rigeneriamo la timeline
+        playbackTimeline = JSON.parse(JSON.stringify(window.visualTimeline));
+    }
+    
+    const bpm = parseFloat(document.getElementById('bpmSlider').value);
+    const beatDuration = 60 / bpm;
+    const targetBeat = startOffsetSec / beatDuration;
+    
+    // Rimuove le note che sono già state suonate prima del punto di Seek
+    while (playbackTimeline.length > 0 && playbackTimeline[0].beat < targetBeat) {
+        playbackTimeline.shift();
+    }
     
     const btn = document.getElementById('mainPlayBtn');
     if (btn) { btn.innerHTML = '⏸️ PAUSA'; btn.classList.add('playing'); }
 
-    playStartTime = audioCtx.currentTime + 0.10; isPlaying = true; lastScheduledBeat = 0; scheduledNotes = []; 
-    schedulerWorker.postMessage('start');
+    // Ricalcola il playStartTime simulando che l'audio sia partito nel passato
+    playStartTime = audioCtx.currentTime - startOffsetSec; 
+    isPlaying = true; 
+    lastScheduledBeat = targetBeat; 
+    scheduledNotes = []; 
+    
+    if (schedulerWorker) schedulerWorker.postMessage('start');
     requestAnimationFrame(animateProgress);
 };
 
@@ -420,8 +438,12 @@ function animateProgress() {
         return; 
     }
     
+    const percent = (elapsed / totalDurationSec) * 100;
     const bar = document.getElementById('progressBar');
-    if (bar) bar.style.width = `${(elapsed / totalDurationSec) * 100}%`;
+    if (bar) bar.style.width = `${percent}%`;
+    
+    const seekSlider = document.getElementById('seekSlider');
+    if (seekSlider && !window.isSeeking) seekSlider.value = percent;
     
     const activeNotes = scheduledNotes.filter(n => now >= n.start && now < n.end);
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => {
@@ -436,11 +458,20 @@ function animateProgress() {
     progressAnimationId = requestAnimationFrame(animateProgress);
 }
 
-window.stopPlayback = function(userInitiated = true) {
+window.pausePlayback = function() {
+    if (typeof audioCtx !== 'undefined' && audioCtx) {
+        window.currentPauseTime = audioCtx.currentTime - playStartTime;
+    }
+    window.stopPlayback(true, true); // Stop morbido senza resettare interfaccia a 0
+    const btn = document.getElementById('mainPlayBtn');
+    if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
+};
+
+window.stopPlayback = function(userInitiated = true, softStop = false) {
     if (userInitiated !== false) window.isPlaylistMode = false;
     
     const btn = document.getElementById('mainPlayBtn');
-    if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
+    if (btn && !softStop) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
 
     if (typeof activeNodes !== 'undefined') {
         activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
@@ -451,13 +482,17 @@ window.stopPlayback = function(userInitiated = true) {
     if (schedulerWorker) schedulerWorker.postMessage('stop');
     if (typeof progressAnimationId !== 'undefined') cancelAnimationFrame(progressAnimationId);
     
-    const bar = document.getElementById('progressBar');
-    if (bar) bar.style.width = '0%';
-    
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
     
-    window.renderSynthesia(0, 0);
-    window.renderScrollingStaff(0);
+    if (!softStop) {
+        window.currentPauseTime = 0;
+        const bar = document.getElementById('progressBar');
+        if (bar) bar.style.width = '0%';
+        const seekSlider = document.getElementById('seekSlider');
+        if (seekSlider) seekSlider.value = 0;
+        window.renderSynthesia(0, 0);
+        window.renderScrollingStaff(0);
+    }
 };
 
 window.updateBPM = function(val) { 
@@ -466,5 +501,33 @@ window.updateBPM = function(val) {
 };
 
 // ==========================================
-// END OF FILE ui.js
+// FUNZIONI DELLA SEEK BAR (BARRA DI SCORRIMENTO)
 // ==========================================
+window.onSeekStart = function() {
+    window.isSeeking = true;
+    wasPlayingBeforeSeek = isPlaying;
+    if (isPlaying) window.pausePlayback();
+};
+
+window.onSeek = function(val) {
+    const bar = document.getElementById('progressBar');
+    if (bar) bar.style.width = `${val}%`;
+    
+    const percent = parseFloat(val) / 100;
+    const newElapsed = percent * totalDurationSec;
+    window.currentPauseTime = newElapsed; // Memorizza la posizione in cui riprendere
+    
+    if (typeof audioCtx !== 'undefined' && audioCtx) {
+        window.renderSynthesia(audioCtx.currentTime, newElapsed);
+        const bpm = parseFloat(document.getElementById('bpmSlider').value);
+        window.renderScrollingStaff(Math.max(0, (newElapsed - 0.08) / (60 / bpm)));
+    }
+};
+
+window.onSeekEnd = function() {
+    window.isSeeking = false;
+    if (wasPlayingBeforeSeek) {
+        window.playComposition(false, window.currentPauseTime); 
+    }
+};
+// END OF FILE ui.js

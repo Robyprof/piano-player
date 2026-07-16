@@ -37,7 +37,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 window.playlistSongKeys = Object.keys(window.firebaseDatabase[randomAuthor]).filter(k => k !== '_authorNotes');
                 window.playlistIndex = 0;
 
-                // Pre-carica il JSON del primo brano senza attivare l'audio (permette il click del neofita)
+                // Pre-carica il JSON del primo brano senza attivare l'audio
                 if (window.playlistSongKeys.length > 0) {
                     await window.preloadFirstSong(randomAuthor, window.playlistSongKeys[0]);
                 }
@@ -69,7 +69,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // [HOOK: MAIN_PLAY_TOGGLE - IL COMANDO CENTRALE]
 window.toggleMainPlay = async function() {
-    // Risveglia il motore audio dal blocco policy dei browser (gesto dell'utente)
+    // Risveglia il motore audio dal blocco policy dei browser
     if (!audioCtx) await window.initAudioEngine();
     if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
 
@@ -78,11 +78,11 @@ window.toggleMainPlay = async function() {
         return;
     }
 
-    const btn = document.getElementById('mainPlayBtn');
     if (isPlaying) {
-        window.stopPlayback(true);
+        window.pausePlayback(); // Mette in pausa invece di fermare
     } else {
-        window.playComposition(true);
+        // Riprende dal punto in cui era stato messo in pausa
+        window.playComposition(true, window.currentPauseTime || 0);
     }
 };
 
@@ -148,21 +148,47 @@ window.loadAndPlayPlaylistSong = async function() {
     } catch(e) { window.playNextInPlaylist(); }
 };
 
+// [PULSANTI AVANTI E INDIETRO FORZATI]
 window.playNextInPlaylist = function() {
-    if (!window.isPlaylistMode) return;
-    window.playlistIndex++;
-    if (window.playlistIndex >= window.playlistSongKeys.length) window.playlistIndex = 0;
+    const authorKey = document.getElementById('authorSelect').value;
+    if (!authorKey || !window.firebaseDatabase[authorKey]) return alert("Seleziona una raccolta!");
+    
+    const songKeys = Object.keys(window.firebaseDatabase[authorKey]).filter(k => k !== '_authorNotes');
+    if (songKeys.length === 0) return alert("La raccolta è vuota!");
+    
+    window.isPlaylistMode = true;
+    window.playlistAuthor = authorKey;
+    window.playlistSongKeys = songKeys;
+    
+    const currentSongKey = document.getElementById('songSelect').value;
+    let idx = songKeys.indexOf(currentSongKey);
+    idx++;
+    if (idx >= songKeys.length) idx = 0;
+    
+    window.playlistIndex = idx;
     window.loadAndPlayPlaylistSong();
 };
 
 window.playPrevInPlaylist = function() {
-    if (!window.isPlaylistMode) return;
-    window.playlistIndex--;
-    if (window.playlistIndex < 0) window.playlistIndex = window.playlistSongKeys.length - 1;
+    const authorKey = document.getElementById('authorSelect').value;
+    if (!authorKey || !window.firebaseDatabase[authorKey]) return alert("Seleziona una raccolta!");
+    
+    const songKeys = Object.keys(window.firebaseDatabase[authorKey]).filter(k => k !== '_authorNotes');
+    if (songKeys.length === 0) return alert("La raccolta è vuota!");
+    
+    window.isPlaylistMode = true;
+    window.playlistAuthor = authorKey;
+    window.playlistSongKeys = songKeys;
+    
+    const currentSongKey = document.getElementById('songSelect').value;
+    let idx = songKeys.indexOf(currentSongKey);
+    idx--;
+    if (idx < 0) idx = songKeys.length - 1;
+    
+    window.playlistIndex = idx;
     window.loadAndPlayPlaylistSong();
 };
 
-// Viste Visive Toggle
 window.toggleSheetView = function() {
     const sheet = document.getElementById('sheetStage');
     if (sheet.style.display === 'none') {

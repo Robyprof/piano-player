@@ -1,4 +1,6 @@
+// ==========================================
 // START OF FILE ui.js
+// ==========================================
 
 let synthCanvas, synthCtx, canvasMap = {};
 let staffCanvas, staffCtx;
@@ -13,7 +15,7 @@ window.midiToDiatonicStep = function(midi) {
 };
 
 // ==========================================
-// 1. GENERAZIONE TASTIERE (PRINCIPALE E SAMPLER)
+// 1. GENERAZIONE TASTIERA PRINCIPALE
 // ==========================================
 window.buildMainKeyboard = function() {
     const keyboard = document.getElementById('keyboard');
@@ -37,10 +39,16 @@ window.buildMainKeyboard = function() {
     }
 };
 
+// ==========================================
+// 2. LOGICA ORIGINALE DEL CAMPIONATORE
+// ==========================================
 window.renderSamplerKeyboard = function() {
     const kb = document.getElementById('samplerKeyboardGen');
     if (!kb) return;
     kb.innerHTML = '';
+    
+    // Forza la classe originale per far funzionare il tuo CSS
+    kb.className = "keyboard sampler-mode"; 
     
     const notesMap = [ { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false }, { isBlack: true }, { isBlack: false } ];
     let totalWhiteKeys = 0; const whiteKeyIndices = {};
@@ -56,14 +64,19 @@ window.renderSamplerKeyboard = function() {
         let keyDiv = document.createElement('div'); keyDiv.id = `s-key-${m}`;
         
         if (!isBlack) {
+            // Applica l'opacità originale (s-inactive) per spegnere i tasti bloccati
             keyDiv.className = `key-white ${isActive30 ? 's-active' : 's-inactive'}`;
-            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
+            if (!isActive30) keyDiv.style.opacity = "0.2"; // Forza visiva spegnimento
+
+            if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 10px; font-weight: bold; color: #000;">${noteName}</span>`;
             document.getElementById('samplerWhiteKeys').appendChild(keyDiv);
         } else {
             keyDiv.className = `key-black ${isActive30 ? 's-active' : 's-inactive'}`;
+            if (!isActive30) keyDiv.style.opacity = "0.2"; // Forza visiva spegnimento
+
             keyDiv.style.left = `${((whiteKeyIndices[m - 1] + 1) / totalWhiteKeys) * 100}%`; keyDiv.style.transform = 'translateX(-50%)';
             keyDiv.style.pointerEvents = 'auto'; 
-            if (isActive30) keyDiv.innerHTML = `<span class="s-label">${noteName}</span>`;
+            if (isActive30) keyDiv.innerHTML = `<span class="s-label" style="position: absolute; bottom: 10px; width: 100%; text-align: center; font-size: 9px; font-weight: bold; color: #fff;">${noteName}</span>`;
             document.getElementById('blackKeysSampler').appendChild(keyDiv);
         }
 
@@ -74,9 +87,6 @@ window.renderSamplerKeyboard = function() {
     }
 };
 
-// ==========================================
-// 2. MODALE SAMPLER (CAMPIONATORE)
-// ==========================================
 window.openSamplerModal = function() {
     document.getElementById('samplerModal').style.display = 'flex';
     window.renderSamplerKeyboard(); 
@@ -91,28 +101,52 @@ window.closeSamplerModal = function() {
 };
 
 window.selectSamplerNote = function(midi, name) {
-    if (typeof currentSelectedSamplerNote !== 'undefined' && currentSelectedSamplerNote) {
-        const oldKey = document.getElementById(`s-key-${currentSelectedSamplerNote.midi}`);
+    // SBLOCCO POLICY BROWSER: Risveglia l'audio al click
+    if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+
+    if (typeof window.currentSelectedSamplerNote !== 'undefined' && window.currentSelectedSamplerNote) {
+        const oldKey = document.getElementById(`s-key-${window.currentSelectedSamplerNote.midi}`);
         if (oldKey) oldKey.classList.remove('s-selected');
     }
-    window.currentSelectedSamplerNote = { midi, name }; 
+    
+    window.currentSelectedSamplerNote = { midi, name };
     const newKey = document.getElementById(`s-key-${midi}`);
-    if (newKey) newKey.classList.add('s-selected');
+    if (newKey) {
+        newKey.classList.add('s-selected');
+        // Forza background color originale rosa acceso al click
+        newKey.style.background = "#ff79c6"; 
+    }
 
     const label = document.getElementById('samplerSelectedNoteLabel');
-    if (label) label.innerText = `Nota selezionata: ${name} 🎹`;
+    if (label) label.innerText = `Registrazione in corso per la Nota: ${name} 🎹`;
     
     document.getElementById('samplerActionPanel').style.display = 'block';
 
     const btn = document.getElementById('btn-rec-modal');
     if (btn) {
         if (typeof isMicRecording !== 'undefined' && isMicRecording && window.toggleRecording) { window.toggleRecording(); }
-        btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra";
+        btn.classList.remove('recording-pulse'); btn.innerText = "🎤 Registra Microfono";
     }
 
+    // Mostra/Nascondi il visualizzatore ed ascolto del campione registrato (Logica Originale)
+    const playbackRow = document.getElementById('samplerPlaybackRow');
+    const playbackLabel = document.getElementById('samplerPlaybackNoteLabel');
+    if (playbackRow && playbackLabel) {
+        playbackLabel.innerText = `Nota selezionata: ${name} 🎵`;
+        if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
+            playbackRow.style.display = 'flex';
+        } else {
+            playbackRow.style.display = 'none';
+        }
+    }
+
+    // Illumina il tasto quando viene selezionato/riprodotto
     if (newKey) {
-        newKey.classList.add('s-playing-light');
-        setTimeout(() => { newKey.classList.remove('s-playing-light'); }, 1500);
+        newKey.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #bd93f9";
+        setTimeout(() => {
+            newKey.style.boxShadow = "";
+            newKey.style.background = ""; // Ripristina colore calcolato da CSS/update
+        }, 1500);
     }
 
     if (window.playRecordedSample) {
@@ -120,19 +154,49 @@ window.selectSamplerNote = function(midi, name) {
     }
 };
 
+window.playAndLightSelectedSample = async function() {
+    if (!window.currentSelectedSamplerNote) return;
+    const name = window.currentSelectedSamplerNote.name;
+    const midi = window.currentSelectedSamplerNote.midi;
+    
+    if (window.playRecordedSample) {
+        window.playRecordedSample(name);
+    }
+    
+    // Feedback luminoso del tasto associato sulla tastiera del campionatore
+    const keyEl = document.getElementById(`s-key-${midi}`);
+    if (keyEl) {
+        keyEl.style.boxShadow = "inset 0 -15px 25px rgba(255, 255, 255, 0.6), 0 0 15px #bd93f9";
+        setTimeout(() => { keyEl.style.boxShadow = ""; }, 1500);
+    }
+};
+
 window.updateSamplerProgress = function() {
     const count = window.customInstrumentBuffers ? Object.keys(window.customInstrumentBuffers).length : 0;
     const progressEl = document.getElementById('samplerProgressText');
-    if (progressEl) progressEl.innerText = `Campioni registrati: ${count} / 30`;
+    if (progressEl) progressEl.innerText = `Campioni caricati: ${count} / 30`;
+    
+    // Aggiorna lo stato visivo di riproduzione per la nota corrente
+    if (typeof window.currentSelectedSamplerNote !== 'undefined' && window.currentSelectedSamplerNote) {
+        const name = window.currentSelectedSamplerNote.name;
+        const playbackRow = document.getElementById('samplerPlaybackRow');
+        if (playbackRow) {
+            if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
+                playbackRow.style.display = 'flex';
+            } else {
+                playbackRow.style.display = 'none';
+            }
+        }
+    }
 
     for (let m of window.activeMidi30) {
         const name = window.noteNames30[window.activeMidi30.indexOf(m)];
         const keyEl = document.getElementById(`s-key-${m}`);
         if (keyEl) {
             if (window.customInstrumentBuffers && window.customInstrumentBuffers[name]) {
-                keyEl.classList.add('s-recorded');
+                keyEl.style.background = "#50fa7b"; // Colore originale verde registrato
             } else {
-                keyEl.classList.remove('s-recorded');
+                keyEl.style.background = "";
             }
         }
     }
@@ -304,11 +368,17 @@ window.importSongFromJSON = function(songData) {
     window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
 
+    // Aggiorna lo spartito istantaneamente
     window.renderScrollingStaff(0);
 };
 
 window.playComposition = function(userInitiated = true) {
     if (userInitiated !== false) window.isPlaylistMode = false;
+    
+    // Controlla che i buffer piano siano caricati o se è in esecuzione il campionatore
+    if (typeof pianoBuffers !== 'undefined' && Object.keys(pianoBuffers).length === 0) {
+        return alert("Attendi un istante, strumento in caricamento! 🎹");
+    }
     
     window.stopPlayback(false); 
     window.importSongFromJSON(window.loadedSong);
@@ -324,6 +394,7 @@ window.playComposition = function(userInitiated = true) {
 function animateProgress() {
     if (!isPlaying || !audioCtx) return;
     const now = audioCtx.currentTime; const elapsed = now - playStartTime;
+    
     window.renderSynthesia(now, elapsed);
 
     const bpm = parseFloat(document.getElementById('bpmSlider').value);
@@ -349,6 +420,7 @@ function animateProgress() {
             if (activeNote) k.classList.add(activeNote.type === 'chord' ? 'active-chord' : 'active-melody');
         }
     });
+    
     progressAnimationId = requestAnimationFrame(animateProgress);
 }
 
@@ -358,20 +430,30 @@ window.stopPlayback = function(userInitiated = true) {
     const btn = document.getElementById('mainPlayBtn');
     if (btn) { btn.innerHTML = '▶️ PLAY'; btn.classList.remove('playing'); }
 
-    activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
-    activeNodes = []; scheduledNotes = []; isPlaying = false; 
+    if (typeof activeNodes !== 'undefined') {
+        activeNodes.forEach(node => { try { node.stop(); } catch(e){} });
+        activeNodes = []; 
+    }
+    scheduledNotes = []; isPlaying = false; 
+    
     if (schedulerWorker) schedulerWorker.postMessage('stop');
-    cancelAnimationFrame(progressAnimationId);
+    if (typeof progressAnimationId !== 'undefined') cancelAnimationFrame(progressAnimationId);
     
     const bar = document.getElementById('progressBar');
     if (bar) bar.style.width = '0%';
     
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
     
+    // Ripristina grafiche a zero
     window.renderSynthesia(0, 0);
     window.renderScrollingStaff(0);
 };
 
-window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; };
+window.updateBPM = function(val) { 
+    const el = document.getElementById('bpmVal');
+    if (el) el.innerText = val; 
+};
 
-// --- FINE DEL FILE ---
+// ==========================================
+// END OF FILE ui.js
+// ==========================================

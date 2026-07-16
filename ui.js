@@ -48,14 +48,19 @@ window.initSynthesiaCanvas = function() {
     }
 };
 
+// [NUOVO] INIZIALIZZAZIONE SPARTITO
+window.initStaffCanvas = function() {
+    staffCanvas = document.getElementById('staffCanvas'); if (!staffCanvas) return;
+    staffCtx = staffCanvas.getContext('2d');
+    const resize = () => { staffCanvas.width = staffCanvas.clientWidth; staffCanvas.height = staffCanvas.clientHeight; window.renderScrollingStaff(0); };
+    window.addEventListener('resize', resize); setTimeout(resize, 100);
+};
+
 window.renderSynthesia = function(now, elapsed) {
     if (!synthCtx || !synthCanvas) return;
     synthCtx.clearRect(0, 0, synthCanvas.width, synthCanvas.height);
 
     if (isPlaying) {
-        const bpm = parseFloat(document.getElementById('bpmSlider').value);
-        const beatDuration = 60 / bpm;
-        
         synthCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         synthCtx.lineWidth = 1;
         for (let m = window.startMidi; m <= window.endMidi; m++) {
@@ -96,6 +101,77 @@ window.renderSynthesia = function(now, elapsed) {
     });
 };
 
+// [NUOVO] MOTORE GRAFICO DELLO SPARTITO
+window.renderScrollingStaff = function(currentBeat) {
+    if (!staffCanvas || !staffCtx) return;
+    const ctx = staffCtx; const w = staffCanvas.width; const h = staffCanvas.height;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);
+    const gap = 14; const centerY_treble = h * 0.26; const centerY_bass = h * 0.74;   
+    const playLineX = w / 2; const pixelsPerBeat = 60;        
+
+    ctx.strokeStyle = "#cccccc"; ctx.lineWidth = 1;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(0, centerY_treble + i * gap); ctx.lineTo(w, centerY_treble + i * gap); ctx.stroke(); }
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(0, centerY_bass + i * gap); ctx.lineTo(w, centerY_bass + i * gap); ctx.stroke(); }
+
+    let beatsPerMeasure = 4;
+    if (window.loadedSong && window.loadedSong.meter) { const match = window.loadedSong.meter.match(/^(\d+)\//); if (match) beatsPerMeasure = parseInt(match[1], 10); }
+
+    const startMeasure = Math.floor((currentBeat - (playLineX / pixelsPerBeat)) / beatsPerMeasure);
+    const endMeasure = Math.ceil((currentBeat + ((w - playLineX) / pixelsPerBeat)) / beatsPerMeasure);
+
+    ctx.strokeStyle = "#bbbbbb"; ctx.lineWidth = 1.5;
+    for (let m = Math.max(0, startMeasure); m <= endMeasure; m++) {
+        const measureBeat = m * beatsPerMeasure; const mx = playLineX + (measureBeat - currentBeat) * pixelsPerBeat;
+        if (mx >= 85 && mx <= w) {
+            ctx.beginPath(); ctx.moveTo(mx, centerY_treble - 2 * gap); ctx.lineTo(mx, centerY_bass + 2 * gap); ctx.stroke();
+            ctx.fillStyle = "#888888"; ctx.font = "italic bold 13px sans-serif"; ctx.fillText((m + 1).toString(), mx + 6, centerY_treble - 2.5 * gap);
+        }
+    }
+
+    if (currentTrebleNotes.length > 0) {
+        currentTrebleNotes.forEach(note => {
+            const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
+            if (x < 85 || x > w + 100) return; 
+            let displayMidi = note.note > 83 ? note.note - 12 : note.note;
+            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_treble - (step - 38) * (gap / 2);
+            drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_treble, true, note.note > 83, false);
+        });
+    }
+
+    if (currentBassNotes.length > 0) {
+        currentBassNotes.forEach(note => {
+            const x = playLineX + (note.beat - currentBeat) * pixelsPerBeat;
+            if (x < 85 || x > w + 100) return;
+            let displayMidi = note.note < 36 ? note.note + 12 : note.note;
+            const step = window.midiToDiatonicStep(displayMidi); const y = centerY_bass - (step - 26) * (gap / 2);
+            drawNoteOnCanvas(ctx, x, y, step, note.duration, pixelsPerBeat, gap, centerY_bass, false, false, note.note < 36);
+        });
+    }
+
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, 85, h);
+    ctx.strokeStyle = "#bbbbbb"; ctx.lineWidth = 1;
+    for (let i = -2; i <= 2; i++) {
+        ctx.beginPath(); ctx.moveTo(0, centerY_treble + i * gap); ctx.lineTo(85, centerY_treble + i * gap); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, centerY_bass + i * gap); ctx.lineTo(85, centerY_bass + i * gap); ctx.stroke();
+    }
+
+    ctx.strokeStyle = "#111111"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(15, centerY_treble - 2 * gap); ctx.lineTo(15, centerY_bass + 2 * gap); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15, centerY_treble - 2 * gap); ctx.lineTo(23, centerY_treble - 2 * gap); ctx.moveTo(15, centerY_bass + 2 * gap); ctx.lineTo(23, centerY_bass + 2 * gap); ctx.stroke();
+    ctx.fillStyle = "#111111"; ctx.font = "72px serif"; ctx.fillText("𝄞", 20, centerY_treble + 25); ctx.fillText("𝄢", 20, centerY_bass + 20);
+
+    ctx.strokeStyle = "red"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(playLineX, 15); ctx.lineTo(playLineX, h - 15); ctx.stroke();
+};
+
+function drawNoteOnCanvas(ctx, x, y, step, duration, pixelsPerBeat, gap, centerY, isTreble, is8va, is8vb) {
+    if (duration > 0) { const trailWidth = duration * pixelsPerBeat; ctx.fillStyle = "rgba(0, 0, 0, 0.05)"; ctx.fillRect(x, y - 3, trailWidth, 6); }
+    ctx.strokeStyle = "#444444"; ctx.lineWidth = 1.0;          
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-20 * Math.PI / 180); ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.ellipse(0, 0, 9, 6, 0, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+    const stemUp = isTreble ? (y > centerY) : (y > centerY); ctx.strokeStyle = "#000000"; ctx.lineWidth = 2.2;         
+    ctx.beginPath(); ctx.moveTo(stemUp ? x + 6 : x - 6, y); ctx.lineTo(stemUp ? x + 6 : x - 6, stemUp ? y - 38 : y + 38); ctx.stroke();
+    if (is8va || is8vb) { ctx.fillStyle = "#ff5555"; ctx.font = "italic bold 12px sans-serif"; ctx.fillText(is8va ? "8va" : "8vb", x - 10, is8va ? y - 14 : y + 18); }
+}
+
 window.importSongFromJSON = function(songData) {
     window.stopPlayback(false); 
     const bpm = songData.bpm || 105;
@@ -118,6 +194,9 @@ window.importSongFromJSON = function(songData) {
     playbackTimeline.sort((a, b) => a.beat - b.beat);
     window.visualTimeline = JSON.parse(JSON.stringify(playbackTimeline));
     totalDurationSec = (maxBeat * (60 / bpm)) + 2.0; 
+
+    // Aggiorna visivamente lo spartito a bocce ferme
+    window.renderScrollingStaff(0);
 };
 
 window.playComposition = function(userInitiated = true) {
@@ -139,6 +218,10 @@ function animateProgress() {
     if (!isPlaying || !audioCtx) return;
     const now = audioCtx.currentTime; const elapsed = now - playStartTime;
     window.renderSynthesia(now, elapsed);
+
+    // [NUOVO] AGGIORNAMENTO SCROLLING SPARTITO
+    const bpm = parseFloat(document.getElementById('bpmSlider').value);
+    window.renderScrollingStaff(Math.max(0, (elapsed - 0.08) / (60 / bpm)));
 
     if (elapsed >= totalDurationSec) { 
         window.stopPlayback(false); 
@@ -173,7 +256,10 @@ window.stopPlayback = function(userInitiated = true) {
     cancelAnimationFrame(progressAnimationId);
     document.getElementById('progressBar').style.width = '0%';
     document.querySelectorAll('#keyboard .key-white, #keyboard .key-black').forEach(k => k.classList.remove('active-chord', 'active-melody'));
+    
+    // Ripristina grafiche a zero
     window.renderSynthesia(0, 0);
+    window.renderScrollingStaff(0);
 };
 
 window.updateBPM = function(val) { document.getElementById('bpmVal').innerText = val; };

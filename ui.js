@@ -433,7 +433,7 @@ function animateProgress() {
     if (elapsed >= totalDurationSec) { 
         window.stopPlayback(false); 
         if (window.isPlaylistMode && window.playNextInPlaylist) {
-            setTimeout(() => window.playNextInPlaylist(), 1000);
+            setTimeout(() => window.playNextInPlaylist(), 200); // Ridotto a 200ms per transizioni quasi istantanee
         }
         return; 
     }

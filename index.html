@@ -30,6 +30,7 @@
             <div class="sidebar-section">
                 <h3>🌐 Esplora Raccolte Cloud</h3>
                 <select id="authorSelect" class="db-select" onchange="window.onAuthorSelected(this.value, false)"></select>
+                <button class="btn full-width" style="background: var(--accent-melody); color: #000; margin-bottom: 10px; font-weight: bold;" onclick="window.startAuthorPlaylist()">🔁 Riproduci Intera Raccolta</button>
                 <select id="songSelect" class="db-select" onchange="window.onSongSelected(this.value)"></select>
                 <button class="btn btn-primary full-width" style="margin-top:10px;" onclick="window.openCloudManager()">☁️ Gestione Avanzata Cloud</button>
             </div>
@@ -110,7 +111,7 @@
     </div>
 
     <!-- ============================================== -->
-    <!-- [HOOK: MODAL_SAMPLER] (RIPRISTINATO ALL'ORIGINALE) -->
+    <!-- [HOOK: MODAL_SAMPLER] -->
     <!-- ============================================== -->
     <div class="modal-overlay" id="samplerModal">
         <div class="modal-content" style="background: #161824; border: 1px solid #44475a;">

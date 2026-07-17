@@ -105,6 +105,10 @@ window.preloadFirstSong = async function(authorKey, songKey) {
 
 // [HOOK: PLAYLIST_LOGIC]
 window.startAuthorPlaylist = async function() {
+    // Risveglia l'ambiente audio per prevenire blocchi del browser alla riproduzione successiva
+    if (!audioCtx) await window.initAudioEngine();
+    if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+
     const authorKey = document.getElementById('authorSelect').value;
     if (!authorKey || !window.firebaseDatabase[authorKey]) return alert("Seleziona una raccolta!");
     const songKeys = Object.keys(window.firebaseDatabase[authorKey]).filter(k => k !== '_authorNotes');
